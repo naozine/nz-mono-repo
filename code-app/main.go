@@ -34,8 +34,61 @@ func main() {
     <h1>シンプルなトップページ</h1>
     <p>Echo フレームワークを使用したシンプルなトップページです。</p>
     
-    <div x-data="{ message: 'こんにちは！', clicked: false }">
-        <button @click="clicked = !clicked" x-text="clicked ? 'クリック済み' : 'ボタンをクリック'"></button>
+    <div x-data="{ 
+        message: 'Gadd9コードを再生しました！', 
+        clicked: false,
+        audioContext: null,
+        
+        init() {
+            // Initialize audio context on first user interaction
+        },
+        
+        async playGadd9() {
+            try {
+                // Create audio context if not exists
+                if (!this.audioContext) {
+                    this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                
+                // Resume audio context if suspended (required by browser policies)
+                if (this.audioContext.state === 'suspended') {
+                    await this.audioContext.resume();
+                }
+                
+                // Gadd9 chord frequencies (G-B-D-A)
+                // G4 = 392 Hz, B4 = 494 Hz, D5 = 587 Hz, A4 = 440 Hz
+                const frequencies = [392, 494, 587, 440];
+                const duration = 2; // 2 seconds
+                
+                // Create oscillators for each note
+                frequencies.forEach((freq, index) => {
+                    const oscillator = this.audioContext.createOscillator();
+                    const gainNode = this.audioContext.createGain();
+                    
+                    oscillator.connect(gainNode);
+                    gainNode.connect(this.audioContext.destination);
+                    
+                    oscillator.frequency.setValueAtTime(freq, this.audioContext.currentTime);
+                    oscillator.type = 'sine';
+                    
+                    // Set volume envelope
+                    gainNode.gain.setValueAtTime(0, this.audioContext.currentTime);
+                    gainNode.gain.linearRampToValueAtTime(0.1, this.audioContext.currentTime + 0.1);
+                    gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + duration);
+                    
+                    // Start and stop oscillator
+                    oscillator.start(this.audioContext.currentTime);
+                    oscillator.stop(this.audioContext.currentTime + duration);
+                });
+                
+                this.clicked = true;
+            } catch (error) {
+                console.error('Web Audio API error:', error);
+                alert('音声の再生に失敗しました。ブラウザがWeb Audio APIに対応していない可能性があります。');
+            }
+        }
+    }">
+        <button @click="playGadd9()" x-text="clicked ? 'Gadd9再生済み' : 'Gadd9コードを再生'"></button>
         <p x-show="clicked" x-text="message"></p>
     </div>
 </body>
