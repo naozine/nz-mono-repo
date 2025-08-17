@@ -35,15 +35,18 @@ func main() {
     <p>Echo フレームワークを使用したシンプルなトップページです。</p>
     
     <div x-data="{ 
-        message: 'Gadd9コードを再生しました！', 
-        clicked: false,
+        message: '', 
+        clickedGadd9: false,
+        clickedA: false,
+        clickedFSharpM: false,
+        clickedBm: false,
         audioContext: null,
         
         init() {
             // Initialize audio context on first user interaction
         },
         
-        async playGadd9() {
+        async playChord(frequencies, chordName) {
             try {
                 // Create audio context if not exists
                 if (!this.audioContext) {
@@ -55,9 +58,6 @@ func main() {
                     await this.audioContext.resume();
                 }
                 
-                // Gadd9 chord frequencies (G-B-D-A)
-                // G4 = 392 Hz, B4 = 494 Hz, D5 = 587 Hz, A4 = 440 Hz
-                const frequencies = [392, 494, 587, 440];
                 const duration = 2; // 2 seconds
                 
                 // Create oscillators for each note
@@ -81,15 +81,53 @@ func main() {
                     oscillator.stop(this.audioContext.currentTime + duration);
                 });
                 
-                this.clicked = true;
+                this.message = chordName + 'コードを再生しました！';
+                
+                // Update clicked state based on chord
+                if (chordName === 'Gadd9') this.clickedGadd9 = true;
+                else if (chordName === 'A') this.clickedA = true;
+                else if (chordName === 'F#m') this.clickedFSharpM = true;
+                else if (chordName === 'Bm') this.clickedBm = true;
+                
             } catch (error) {
                 console.error('Web Audio API error:', error);
                 alert('音声の再生に失敗しました。ブラウザがWeb Audio APIに対応していない可能性があります。');
             }
+        },
+        
+        async playGadd9() {
+            // Gadd9 chord frequencies (G-B-D-A)
+            // G4 = 392 Hz, B4 = 494 Hz, D5 = 587 Hz, A4 = 440 Hz
+            const frequencies = [392, 494, 587, 440];
+            await this.playChord(frequencies, 'Gadd9');
+        },
+        
+        async playA() {
+            // A chord frequencies (A-C#-E)
+            // A4 = 440 Hz, C#5 = 554 Hz, E5 = 659 Hz
+            const frequencies = [440, 554, 659];
+            await this.playChord(frequencies, 'A');
+        },
+        
+        async playFSharpMinor() {
+            // F#m chord frequencies (F#-A-C#)
+            // F#4 = 370 Hz, A4 = 440 Hz, C#5 = 554 Hz
+            const frequencies = [370, 440, 554];
+            await this.playChord(frequencies, 'F#m');
+        },
+        
+        async playBMinor() {
+            // Bm chord frequencies (B-D-F#)
+            // B4 = 494 Hz, D5 = 587 Hz, F#5 = 740 Hz
+            const frequencies = [494, 587, 740];
+            await this.playChord(frequencies, 'Bm');
         }
     }">
-        <button @click="playGadd9()" x-text="clicked ? 'Gadd9再生済み' : 'Gadd9コードを再生'"></button>
-        <p x-show="clicked" x-text="message"></p>
+        <button @click="playGadd9()" x-text="clickedGadd9 ? 'Gadd9再生済み' : 'Gadd9コードを再生'"></button>
+        <button @click="playA()" x-text="clickedA ? 'A再生済み' : 'Aコード（ラ・ド#・ミ）を再生'"></button>
+        <button @click="playFSharpMinor()" x-text="clickedFSharpM ? 'F#m再生済み' : 'F#mコード（ファ#・ラ・ド#）を再生'"></button>
+        <button @click="playBMinor()" x-text="clickedBm ? 'Bm再生済み' : 'Bmコード（シ・レ・ファ#）を再生'"></button>
+        <p x-show="message" x-text="message"></p>
     </div>
 </body>
 </html>`)
