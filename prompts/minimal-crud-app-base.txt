@@ -1,43 +1,138 @@
-  Echo + Standard Go Project Layoutで、最小CRUDアプリを生成してください。
+Echo + Standard Go Project Layoutで、最小CRUDアプリを生成してください。
 
-  【基本要件】
-  - アプリ名: whiscript（apps/whiscript配下）
-  - 認証なし、SQLite、htmx/Alpine/TailwindはCDN
-  - Projectの一覧・作成・編集・削除（htmxで非同期）
-  - internal/{handler,service,repository,model}で責務分割
-  - gooseでマイグレーション、html/templateでテンプレート
-  - Makefile（dev/build/migrate等）
+【基本要件】
+- アプリ名: whiscript（apps/whiscript配下）
+- 認証なし、SQLite + sqlx、htmx/Alpine/TailwindはCDN
+- Projectの一覧・作成・編集・削除（htmxで非同期）
+- internal/{handler,service,repository,model}で責務分割
+- gooseでマイグレーション、html/templateでテンプレート
+- sqlxでボイラープレート削減（database/sqlではなくsqlxを使用）
+- Makefile（dev/build/migrate等）
 
-  【技術的制約と対応】
-  1. **go:embed**: `..` を含むパスは使えません
-     → templatesとmigrationsを埋め込むパッケージと同階層に配置
+【技術的制約と対応】
+1. **go:embed**: `..` を含むパスは使えません
+   → templatesとmigrationsを埋め込むパッケージと同階層に配置
 
-  2. **go workspace**: このリポジトリはworkspaceを使用
-     → go.mod作成後すぐに `go work use .` を実行
+2. **go workspace**: このリポジトリはworkspaceを使用
+   → go.mod作成後すぐに `go work use .` を実行
 
-  【最終構成】
-  apps/whiscript/
-  ├── cmd/whiscript/main.go
-  ├── internal/
-  │   ├── ui/
-  │   │   ├── embed.go         # //go:embed templates/.html
-  │   │   └── templates/       # index.html, project-item.html
-  │   ├── db/
-  │   │   ├── embed.go         # //go:embed migrations/.sql
-  │   │   └── migrations/      # 00001_create_projects.sql
-  │   ├── handler/project.go
-  │   ├── service/project.go
-  │   ├── repository/project.go
-  │   └── model/project.go
-  ├── Makefile
-  └── go.mod
+3. **sqlx使用**: database/sqlではなくgithub.com/jmoiron/sqlxを使用
+   → modelに `db:"column_name"` タグを追加
+   → repository層で db.Select(), db.Get() を活用
 
-  【作業順序】
-  1. ディレクトリ構造作成
-  2. go.mod作成 → **即座に `go work use .` 実行**
-  3. 各層の実装（model → repository → service → handler）
-  4. internal/ui/embed.go作成 + templates/配置
-  5. internal/db/embed.go作成 + migrations/配置
-  6. cmd/whiscript/main.go作成
-  7. Makefile作成
-  8. ビルド確認
+【最終構成】
+```
+apps/whiscript/
+├── cmd/whiscript/main.go
+├── internal/
+│   ├── ui/
+│   │   ├── embed.go         # //go:embed templates/*.html
+│   │   └── templates/       # index.html, project-item.html
+│   ├── db/
+│   │   ├── embed.go         # //go:embed migrations/*.sql + Open()
+│   │   └── migrations/      # 00001_create_projects.sql
+│   ├── handler/project.go
+│   ├── service/project.go
+│   ├── repository/project.go  # *sqlx.DB を使用
+│   └── model/project.go       # db:"" タグ付き
+├── Makefile
+└── go.mod                    # sqlx依存を含む
+```
+
+【作業順序】
+1. ディレクトリ構造作成
+2. go.mod作成（sqlx依存を含む） → **即座に `go work use .` 実行**
+3. 各層の実装（model → repository → service → handler）
+   - model: `db:"column_name"` タグを全フィールドに追加
+   - repository: *sqlx.DB を受け取り、Select/Get を使用
+4. internal/ui/embed.go作成 + templates/配置
+5. internal/db/embed.go作成（Open関数で*sqlx.DBを返す） + migrations/配置
+6. cmd/whiscript/main.go作成（db.Open()を使用）
+7. Makefile作成
+8. ビルド確認
+
+【重要な実装ポイント】
+
+## model/project.go
+```go
+type Project struct {
+    ID          int64     `db:"id" json:"id"`
+    Name        string    `db:"name" json:"name"`
+    Description string    `db:"description" json:"description"`
+    CreatedAt   time.Time `db:"created_at" json:"created_at"`
+    UpdatedAt   time.Time `db:"updated_at" json:"updated_at"`
+}
+```
+
+## repository/project.go
+```go
+import "github.com/jmoiron/sqlx"
+
+type ProjectRepository struct {
+    db *sqlx.DB
+}
+
+func (r *ProjectRepository) FindAll() ([]*model.Project, error) {
+    var projects []*model.Project
+    query := `SELECT * FROM projects ORDER BY created_at DESC`
+    if err := r.db.Select(&projects, query); err != nil {
+        return nil, err
+    }
+    return projects, nil
+}
+
+func (r *ProjectRepository) FindByID(id int64) (*model.Project, error) {
+    var project model.Project
+    if err := r.db.Get(&project, "SELECT * FROM projects WHERE id = ?", id); err != nil {
+        if err == sql.ErrNoRows {
+            return nil, nil
+        }
+        return nil, err
+    }
+    return &project, nil
+}
+```
+
+## internal/db/embed.go
+```go
+import "github.com/jmoiron/sqlx"
+
+func Open(dbPath string) (*sqlx.DB, error) {
+    db, err := sqlx.Connect("sqlite3", dbPath)
+    if err != nil {
+        return nil, fmt.Errorf("failed to connect: %w", err)
+    }
+    return db, nil
+}
+
+func RunMigrations(db *sql.DB) error {
+    // gooseは*sql.DBを要求するため、sqlx.DB.DBを渡す
+    // ...
+}
+```
+
+## cmd/whiscript/main.go
+```go
+database, err := db.Open(dbPath)  // *sqlx.DB
+if err != nil {
+    log.Fatal(err)
+}
+defer database.Close()
+
+// マイグレーション実行（goose用に内部のsql.DBを渡す）
+if err := db.RunMigrations(database.DB); err != nil {
+    log.Fatal(err)
+}
+
+projectRepo := repository.NewProjectRepository(database)
+```
+
+## go.mod
+```
+require (
+    github.com/jmoiron/sqlx v1.4.0
+    github.com/labstack/echo/v4 v4.12.0
+    github.com/mattn/go-sqlite3 v1.14.24
+    github.com/pressly/goose/v3 v3.23.1
+)
+```
