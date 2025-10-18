@@ -1,0 +1,43 @@
+  Echo + Standard Go Project Layoutで、最小CRUDアプリを生成してください。
+
+  【基本要件】
+  - アプリ名: whiscript（apps/whiscript配下）
+  - 認証なし、SQLite、htmx/Alpine/TailwindはCDN
+  - Projectの一覧・作成・編集・削除（htmxで非同期）
+  - internal/{handler,service,repository,model}で責務分割
+  - gooseでマイグレーション、html/templateでテンプレート
+  - Makefile（dev/build/migrate等）
+
+  【技術的制約と対応】
+  1. **go:embed**: `..` を含むパスは使えません
+     → templatesとmigrationsを埋め込むパッケージと同階層に配置
+
+  2. **go workspace**: このリポジトリはworkspaceを使用
+     → go.mod作成後すぐに `go work use .` を実行
+
+  【最終構成】
+  apps/whiscript/
+  ├── cmd/whiscript/main.go
+  ├── internal/
+  │   ├── ui/
+  │   │   ├── embed.go         # //go:embed templates/.html
+  │   │   └── templates/       # index.html, project-item.html
+  │   ├── db/
+  │   │   ├── embed.go         # //go:embed migrations/.sql
+  │   │   └── migrations/      # 00001_create_projects.sql
+  │   ├── handler/project.go
+  │   ├── service/project.go
+  │   ├── repository/project.go
+  │   └── model/project.go
+  ├── Makefile
+  └── go.mod
+
+  【作業順序】
+  1. ディレクトリ構造作成
+  2. go.mod作成 → **即座に `go work use .` 実行**
+  3. 各層の実装（model → repository → service → handler）
+  4. internal/ui/embed.go作成 + templates/配置
+  5. internal/db/embed.go作成 + migrations/配置
+  6. cmd/whiscript/main.go作成
+  7. Makefile作成
+  8. ビルド確認
