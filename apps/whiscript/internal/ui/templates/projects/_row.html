@@ -1,7 +1,7 @@
 {{ define "projects/_row.html" }}
-<tr id="row-{{ .ID }}" class="hover:bg-gray-50">
+<tr id="row-{{ .ID }}" class="hover:bg-gray-50 cursor-pointer" onclick="window.location='/projects/{{ .ID }}'">
     <td class="px-6 py-4 whitespace-nowrap">
-        <div class="text-sm font-medium text-gray-900">{{ .Name }}</div>
+        <div class="text-sm font-medium text-blue-600">{{ .Name }}</div>
     </td>
     <td class="px-6 py-4">
         <div class="text-sm text-gray-500">{{ .Description }}</div>
@@ -9,7 +9,7 @@
     <td class="px-6 py-4 whitespace-nowrap">
         <div class="text-sm text-gray-500">{{ .CreatedAt.Format "2006-01-02 15:04" }}</div>
     </td>
-    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium" onclick="event.stopPropagation()">
         <button
             class="text-indigo-600 hover:text-indigo-900 mr-4"
             hx-get="/projects/{{ .ID }}/edit"

@@ -1,0 +1,14 @@
+{{ define "projects/_audio_list.html" }}
+{{ if . }}
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+    {{ range . }}
+    {{ template "projects/_audio_card.html" . }}
+    {{ end }}
+</div>
+{{ else }}
+<div class="text-center py-12 text-gray-500">
+    <p class="text-lg">No audio files yet</p>
+    <p class="text-sm">Upload your first audio file to get started</p>
+</div>
+{{ end }}
+{{ end }}

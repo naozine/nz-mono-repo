@@ -6,6 +6,9 @@
 *.db-shm
 *.db-wal
 
+# Uploads
+/uploads/
+
 # Go
 *.exe
 *.exe~

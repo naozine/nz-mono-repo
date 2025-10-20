@@ -1,0 +1,33 @@
+{{ define "projects/_audio_card.html" }}
+<div id="audio-{{ .ID }}" class="border rounded-lg p-4 hover:shadow-lg transition-shadow">
+    <div class="flex items-start justify-between mb-3">
+        <div class="flex-1">
+            <h4 class="font-semibold text-gray-900 truncate">{{ .Name }}</h4>
+            <p class="text-sm text-gray-500 truncate">{{ .OriginalFilename }}</p>
+        </div>
+        <button
+            class="text-red-600 hover:text-red-900 ml-2"
+            hx-delete="/projects/audio/{{ .ID }}"
+            hx-target="#audio-{{ .ID }}"
+            hx-swap="outerHTML"
+            hx-confirm="Are you sure you want to delete this audio file?">
+            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+            </svg>
+        </button>
+    </div>
+
+    <audio controls class="w-full mb-3">
+        <source src="/uploads/{{ .ID }}" type="{{ .MimeType }}">
+        Your browser does not support the audio element.
+    </audio>
+
+    <div class="flex justify-between text-xs text-gray-500">
+        <span>{{ if .Duration }}{{ printf "%.1f" .Duration }}s{{ else }}Unknown{{ end }}</span>
+        <span>{{ .FileSize | printf "%.2f" | printf "%s KB" }}</span>
+    </div>
+    <div class="text-xs text-gray-400 mt-1">
+        {{ .CreatedAt.Format "2006-01-02 15:04" }}
+    </div>
+</div>
+{{ end }}

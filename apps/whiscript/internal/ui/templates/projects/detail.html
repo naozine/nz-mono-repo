@@ -1,0 +1,130 @@
+{{ define "projects/detail.html" }}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ .Project.Name }} - Whiscript</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+    <script src="https://unpkg.com/hyperscript.org@0.9.12"></script>
+    <script src="https://unpkg.com/idiomorph@0.3.0/dist/idiomorph-ext.min.js"></script>
+</head>
+<body class="bg-gray-50">
+    <nav class="bg-white shadow-lg">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <h1 class="text-2xl font-bold text-gray-900">Whiscript</h1>
+                </div>
+                <div class="flex items-center">
+                    <a href="/projects" class="text-gray-700 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium">Projects</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+<div class="mb-6">
+    <a href="/projects" class="text-blue-600 hover:text-blue-800">← Back to Projects</a>
+</div>
+
+<div class="bg-white shadow rounded-lg p-6 mb-6">
+    <div class="flex justify-between items-start mb-4">
+        <div>
+            <h2 class="text-3xl font-bold text-gray-900 mb-2">{{ .Project.Name }}</h2>
+            <p class="text-gray-600">{{ .Project.Description }}</p>
+            <p class="text-sm text-gray-500 mt-2">Created: {{ .Project.CreatedAt.Format "2006-01-02 15:04" }}</p>
+        </div>
+        <div class="flex gap-2">
+            <a href="/projects/{{ .Project.ID }}/edit" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+                Edit Project
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="bg-white shadow rounded-lg p-6">
+    <div class="flex justify-between items-center mb-6">
+        <h3 class="text-2xl font-bold text-gray-900">Audio Files</h3>
+        <button
+            class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded"
+            _="on click toggle .hidden on #upload-modal">
+            Upload Audio
+        </button>
+    </div>
+
+    <div id="audio-files-list">
+        {{ if .AudioFiles }}
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {{ range .AudioFiles }}
+            {{ template "projects/_audio_card.html" . }}
+            {{ end }}
+        </div>
+        {{ else }}
+        <div class="text-center py-12 text-gray-500">
+            <p class="text-lg">No audio files yet</p>
+            <p class="text-sm">Upload your first audio file to get started</p>
+        </div>
+        {{ end }}
+    </div>
+</div>
+
+<!-- Upload Modal -->
+<div id="upload-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+    <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-bold">Upload Audio File</h3>
+            <button
+                class="text-gray-400 hover:text-gray-500"
+                _="on click toggle .hidden on #upload-modal">
+                <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+        <form
+            hx-post="/projects/{{ .Project.ID }}/audio"
+            hx-encoding="multipart/form-data"
+            hx-target="#audio-files-list"
+            hx-swap="innerHTML"
+            _="on htmx:afterRequest if event.detail.successful toggle .hidden on #upload-modal then reset() me">
+            <div class="mb-4">
+                <label class="block text-gray-700 text-sm font-bold mb-2" for="audio_file">
+                    Audio File (MP3 or WAV, max 100MB)
+                </label>
+                <input
+                    type="file"
+                    id="audio_file"
+                    name="audio_file"
+                    accept=".mp3,.wav,audio/mpeg,audio/wav"
+                    required
+                    class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+            </div>
+            <div id="upload-error" class="mb-4 hidden">
+                <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+                    <span class="block sm:inline" id="upload-error-message"></span>
+                </div>
+            </div>
+            <div class="flex justify-end gap-2">
+                <button
+                    type="button"
+                    class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded"
+                    _="on click toggle .hidden on #upload-modal">
+                    Cancel
+                </button>
+                <button
+                    type="submit"
+                    class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">
+                    Upload
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+    </main>
+
+    <div id="toast-container" class="fixed top-4 right-4 z-50"></div>
+</body>
+</html>
+{{ end }}

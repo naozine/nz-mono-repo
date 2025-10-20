@@ -19,6 +19,12 @@ func main() {
 		dbPath = "./whiscript.db"
 	}
 
+	// Get upload path from environment or use default
+	uploadPath := os.Getenv("UPLOAD_PATH")
+	if uploadPath == "" {
+		uploadPath = "./uploads"
+	}
+
 	// Initialize database and run migrations
 	database, err := repository.InitDB(dbPath)
 	if err != nil {
@@ -26,12 +32,23 @@ func main() {
 	}
 	defer database.Close()
 
-	// Initialize repository, service, and handler
+	// Initialize repositories
 	projectRepo := repository.NewProjectRepository(database)
+	audioRepo := repository.NewAudioFileRepository(database)
+
+	// Initialize services
 	projectService := service.NewProjectService(projectRepo)
+	audioService := service.NewAudioFileService(audioRepo, uploadPath)
+
+	// Initialize handlers
 	projectHandler, err := handler.NewProjectHandler(projectService)
 	if err != nil {
-		log.Fatalf("Failed to initialize handler: %v", err)
+		log.Fatalf("Failed to initialize project handler: %v", err)
+	}
+
+	audioHandler, err := handler.NewAudioHandler(projectService, audioService)
+	if err != nil {
+		log.Fatalf("Failed to initialize audio handler: %v", err)
 	}
 
 	// Initialize Echo
@@ -47,11 +64,18 @@ func main() {
 		return c.Redirect(302, "/projects")
 	})
 
+	// Project routes
 	e.GET("/projects", projectHandler.Index)
 	e.POST("/projects", projectHandler.Create)
+	e.GET("/projects/:id", audioHandler.Detail)
 	e.GET("/projects/:id/edit", projectHandler.Edit)
 	e.POST("/projects/:id", projectHandler.Update)
 	e.DELETE("/projects/:id", projectHandler.Delete)
+
+	// Audio routes
+	e.POST("/projects/:id/audio", audioHandler.Upload)
+	e.DELETE("/projects/audio/:id", audioHandler.Delete)
+	e.GET("/uploads/:id", audioHandler.Serve)
 
 	// Get port from environment or use default
 	port := os.Getenv("PORT")
