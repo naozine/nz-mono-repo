@@ -96,8 +96,8 @@ func (r *CorpusRepository) DeleteFile(id int64) error {
 // CreateSegment creates a new corpus segment
 func (r *CorpusRepository) CreateSegment(input *model.CorpusSegmentCreateInput) (*model.CorpusSegment, error) {
 	now := time.Now()
-	query := `INSERT INTO corpus_segments (corpus_file_id, segment_index, start_time, end_time, text, speaker, created_at, updated_at)
-	          VALUES (:corpus_file_id, :segment_index, :start_time, :end_time, :text, :speaker, :created_at, :updated_at)`
+	query := `INSERT INTO corpus_segments (corpus_file_id, segment_index, start_time, end_time, text, speaker, words_json, created_at, updated_at)
+	          VALUES (:corpus_file_id, :segment_index, :start_time, :end_time, :text, :speaker, :words_json, :created_at, :updated_at)`
 
 	args := map[string]interface{}{
 		"corpus_file_id": input.CorpusFileID,
@@ -106,6 +106,7 @@ func (r *CorpusRepository) CreateSegment(input *model.CorpusSegmentCreateInput) 
 		"end_time":       input.EndTime,
 		"text":           input.Text,
 		"speaker":        input.Speaker,
+		"words_json":     input.WordsJSON,
 		"created_at":     now,
 		"updated_at":     now,
 	}
@@ -136,8 +137,8 @@ func (r *CorpusRepository) CreateSegmentsBatch(inputs []*model.CorpusSegmentCrea
 	defer tx.Rollback()
 
 	now := time.Now()
-	query := `INSERT INTO corpus_segments (corpus_file_id, segment_index, start_time, end_time, text, speaker, created_at, updated_at)
-	          VALUES (:corpus_file_id, :segment_index, :start_time, :end_time, :text, :speaker, :created_at, :updated_at)`
+	query := `INSERT INTO corpus_segments (corpus_file_id, segment_index, start_time, end_time, text, speaker, words_json, created_at, updated_at)
+	          VALUES (:corpus_file_id, :segment_index, :start_time, :end_time, :text, :speaker, :words_json, :created_at, :updated_at)`
 
 	for _, input := range inputs {
 		args := map[string]interface{}{
@@ -147,6 +148,7 @@ func (r *CorpusRepository) CreateSegmentsBatch(inputs []*model.CorpusSegmentCrea
 			"end_time":       input.EndTime,
 			"text":           input.Text,
 			"speaker":        input.Speaker,
+			"words_json":     input.WordsJSON,
 			"created_at":     now,
 			"updated_at":     now,
 		}

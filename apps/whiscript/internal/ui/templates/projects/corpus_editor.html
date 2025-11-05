@@ -7,19 +7,22 @@
     <title>{{ .CorpusFile.Name }} - Editor - Whiscript</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        .segment-text {
+        .segment-text, .word-text {
             cursor: pointer;
             display: inline;
             padding: 2px 4px;
             border-radius: 3px;
             transition: background-color 0.2s;
         }
-        .segment-text:hover {
+        .segment-text:hover, .word-text:hover {
             background-color: #dbeafe;
         }
-        .segment-text.active {
+        .segment-text.active, .word-text.active {
             background-color: #fef08a;
             font-weight: 600;
+        }
+        .segment-container {
+            display: inline;
         }
         .gap-indicator {
             display: inline;
@@ -71,10 +74,19 @@
         <div class="bg-white shadow rounded-lg p-8">
             <div class="text-lg leading-relaxed" id="text-content">
                 {{ range .SegmentsWithGaps }}
-                    <span class="segment-text"
-                          data-segment-id="{{ .Segment.ID }}"
-                          data-start-time="{{ .Segment.StartTime }}"
-                          data-end-time="{{ .Segment.EndTime }}">{{ .Segment.Text }}</span>{{ if .GapAfter }}<span class="gap-indicator">... ({{ printf "%.1f" .GapAfter }}s) ...</span>{{ end }}{{ if not .GapAfter }} {{ end }}
+                    {{ if .Segment.HasWords }}
+                        <!-- Word-level display -->
+                        <span class="segment-container"
+                              data-segment-id="{{ .Segment.ID }}"
+                              data-words="{{ .Segment.WordsJSON }}"></span>
+                    {{ else }}
+                        <!-- Segment-level fallback -->
+                        <span class="segment-text"
+                              data-segment-id="{{ .Segment.ID }}"
+                              data-start-time="{{ .Segment.StartTime }}"
+                              data-end-time="{{ .Segment.EndTime }}">{{ .Segment.Text }}</span>
+                    {{ end }}
+                    {{ if .GapAfter }}<span class="gap-indicator">... ({{ printf "%.1f" .GapAfter }}s) ...</span>{{ end }}{{ if not .GapAfter }} {{ end }}
                 {{ end }}
             </div>
         </div>
@@ -104,33 +116,55 @@
     <script>
         const audioPlayer = document.getElementById('audio-player');
         const textContent = document.getElementById('text-content');
-        const segments = document.querySelectorAll('.segment-text');
 
-        // Click handler for segments
-        segments.forEach(segment => {
-            segment.addEventListener('click', () => {
-                const startTime = parseFloat(segment.dataset.startTime);
+        // Parse and render word-level segments
+        document.querySelectorAll('.segment-container').forEach(container => {
+            const wordsJSON = container.dataset.words;
+            if (wordsJSON) {
+                try {
+                    const words = JSON.parse(wordsJSON);
+                    words.forEach(word => {
+                        const span = document.createElement('span');
+                        span.className = 'word-text';
+                        span.dataset.startTime = word.start;
+                        span.dataset.endTime = word.end;
+                        span.textContent = word.word;
+                        container.appendChild(span);
+                    });
+                } catch (e) {
+                    console.error('Failed to parse words JSON:', e);
+                }
+            }
+        });
+
+        // Get all clickable elements (after word elements are created)
+        const clickableElements = document.querySelectorAll('.segment-text, .word-text');
+
+        // Click handler for segments and words
+        clickableElements.forEach(element => {
+            element.addEventListener('click', () => {
+                const startTime = parseFloat(element.dataset.startTime);
                 audioPlayer.currentTime = startTime;
                 audioPlayer.play();
 
-                // Update active segment
-                segments.forEach(s => s.classList.remove('active'));
-                segment.classList.add('active');
+                // Update active element
+                clickableElements.forEach(e => e.classList.remove('active'));
+                element.classList.add('active');
             });
         });
 
-        // Update active segment while playing
+        // Update active element while playing (karaoke-style highlight)
         audioPlayer.addEventListener('timeupdate', () => {
             const currentTime = audioPlayer.currentTime;
 
-            segments.forEach(segment => {
-                const startTime = parseFloat(segment.dataset.startTime);
-                const endTime = parseFloat(segment.dataset.endTime);
+            clickableElements.forEach(element => {
+                const startTime = parseFloat(element.dataset.startTime);
+                const endTime = parseFloat(element.dataset.endTime);
 
                 if (currentTime >= startTime && currentTime <= endTime) {
-                    segment.classList.add('active');
+                    element.classList.add('active');
                 } else {
-                    segment.classList.remove('active');
+                    element.classList.remove('active');
                 }
             });
         });

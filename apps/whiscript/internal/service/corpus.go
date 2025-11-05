@@ -155,6 +155,19 @@ func (s *CorpusService) Upload(projectID int64, audioFileID *int64, file *multip
 	// Create segment records in batch
 	segmentInputs := make([]*model.CorpusSegmentCreateInput, len(whisperXOutput.Segments))
 	for i, segment := range whisperXOutput.Segments {
+		// Serialize words to JSON if present
+		var wordsJSON *string
+		if len(segment.Words) > 0 {
+			wordsBytes, err := json.Marshal(segment.Words)
+			if err != nil {
+				s.repo.DeleteFile(corpusFile.ID)
+				os.Remove(filePath)
+				return nil, fmt.Errorf("failed to serialize words: %w", err)
+			}
+			wordsJSONStr := string(wordsBytes)
+			wordsJSON = &wordsJSONStr
+		}
+
 		segmentInputs[i] = &model.CorpusSegmentCreateInput{
 			CorpusFileID: corpusFile.ID,
 			SegmentIndex: i,
@@ -162,6 +175,7 @@ func (s *CorpusService) Upload(projectID int64, audioFileID *int64, file *multip
 			EndTime:      segment.End,
 			Text:         segment.Text,
 			Speaker:      segment.Speaker,
+			WordsJSON:    wordsJSON,
 		}
 	}
 

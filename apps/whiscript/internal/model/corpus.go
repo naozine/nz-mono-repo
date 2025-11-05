@@ -1,6 +1,9 @@
 package model
 
-import "time"
+import (
+	"encoding/json"
+	"time"
+)
 
 // CorpusFile represents a corpus file entity
 type CorpusFile struct {
@@ -25,8 +28,27 @@ type CorpusSegment struct {
 	EndTime      float64   `db:"end_time" json:"end_time"`
 	Text         string    `db:"text" json:"text"`
 	Speaker      *string   `db:"speaker" json:"speaker,omitempty"`
+	WordsJSON    *string   `db:"words_json" json:"words_json,omitempty"`
 	CreatedAt    time.Time `db:"created_at" json:"created_at"`
 	UpdatedAt    time.Time `db:"updated_at" json:"updated_at"`
+}
+
+// GetWords parses and returns the words array from JSON
+func (c *CorpusSegment) GetWords() ([]Word, error) {
+	if c.WordsJSON == nil || *c.WordsJSON == "" {
+		return nil, nil
+	}
+
+	var words []Word
+	if err := json.Unmarshal([]byte(*c.WordsJSON), &words); err != nil {
+		return nil, err
+	}
+	return words, nil
+}
+
+// HasWords returns true if the segment has word-level timing data
+func (c *CorpusSegment) HasWords() bool {
+	return c.WordsJSON != nil && *c.WordsJSON != ""
 }
 
 // CorpusFileCreateInput represents input for creating a corpus file
@@ -48,6 +70,14 @@ type CorpusSegmentCreateInput struct {
 	EndTime      float64
 	Text         string
 	Speaker      *string
+	WordsJSON    *string
+}
+
+// Word represents a word timing information
+type Word struct {
+	Word  string  `json:"word"`
+	Start float64 `json:"start"`
+	End   float64 `json:"end"`
 }
 
 // WhisperXSegment represents a segment in WhisperX JSON format
@@ -56,6 +86,7 @@ type WhisperXSegment struct {
 	End     float64 `json:"end"`
 	Text    string  `json:"text"`
 	Speaker *string `json:"speaker,omitempty"`
+	Words   []Word  `json:"words,omitempty"`
 }
 
 // WhisperXOutput represents the WhisperX JSON format
