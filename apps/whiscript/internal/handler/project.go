@@ -27,6 +27,12 @@ func NewProjectHandler(service *service.ProjectService) (*ProjectHandler, error)
 		"eq":      func(a, b string) bool { return a == b },
 		"div":     func(a, b float64) float64 { return a / b },
 		"float64": func(i int64) float64 { return float64(i) },
+		"deref": func(p *float64) float64 {
+			if p == nil {
+				return 0
+			}
+			return *p
+		},
 	}
 
 	tmpl, err := template.New("").Funcs(funcMap).ParseFS(ui.TemplatesFS, "templates/*.html", "templates/projects/*.html")

@@ -86,7 +86,7 @@
                               data-start-time="{{ .Segment.StartTime }}"
                               data-end-time="{{ .Segment.EndTime }}">{{ .Segment.Text }}</span>
                     {{ end }}
-                    {{ if .GapAfter }}<span class="gap-indicator">... ({{ printf "%.1f" .GapAfter }}s) ...</span>{{ end }}{{ if not .GapAfter }} {{ end }}
+                    {{ if .GapAfter }}<span class="gap-indicator">... ({{ printf "%.1f" (deref .GapAfter) }}s) ...</span>{{ end }}{{ if not .GapAfter }} {{ end }}
                 {{ end }}
             </div>
         </div>
