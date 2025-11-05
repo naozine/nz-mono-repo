@@ -17,16 +17,19 @@ import (
 type AudioHandler struct {
 	projectService *service.ProjectService
 	audioService   *service.AudioFileService
+	corpusService  *service.CorpusService
 	templates      *template.Template
 }
 
 // NewAudioHandler creates a new audio handler
-func NewAudioHandler(projectService *service.ProjectService, audioService *service.AudioFileService) (*AudioHandler, error) {
+func NewAudioHandler(projectService *service.ProjectService, audioService *service.AudioFileService, corpusService *service.CorpusService) (*AudioHandler, error) {
 	// Create template with helper functions
 	funcMap := template.FuncMap{
-		"add": func(a, b int) int { return a + b },
-		"sub": func(a, b int) int { return a - b },
-		"eq":  func(a, b string) bool { return a == b },
+		"add":     func(a, b int) int { return a + b },
+		"sub":     func(a, b int) int { return a - b },
+		"eq":      func(a, b string) bool { return a == b },
+		"div":     func(a, b float64) float64 { return a / b },
+		"float64": func(i int64) float64 { return float64(i) },
 	}
 
 	tmpl, err := template.New("").Funcs(funcMap).ParseFS(ui.TemplatesFS, "templates/*.html", "templates/projects/*.html")
@@ -37,6 +40,7 @@ func NewAudioHandler(projectService *service.ProjectService, audioService *servi
 	return &AudioHandler{
 		projectService: projectService,
 		audioService:   audioService,
+		corpusService:  corpusService,
 		templates:      tmpl,
 	}, nil
 }
@@ -58,9 +62,15 @@ func (h *AudioHandler) Detail(c echo.Context) error {
 		return c.String(http.StatusInternalServerError, "Failed to load audio files")
 	}
 
+	corpusFiles, err := h.corpusService.ListFilesByProjectID(id)
+	if err != nil {
+		return c.String(http.StatusInternalServerError, "Failed to load corpus files")
+	}
+
 	data := map[string]interface{}{
-		"Project":    project,
-		"AudioFiles": audioFiles,
+		"Project":     project,
+		"AudioFiles":  audioFiles,
+		"CorpusFiles": corpusFiles,
 	}
 
 	return h.renderTemplate(c, "projects/detail.html", data)

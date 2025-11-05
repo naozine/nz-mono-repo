@@ -35,10 +35,12 @@ func main() {
 	// Initialize repositories
 	projectRepo := repository.NewProjectRepository(database)
 	audioRepo := repository.NewAudioFileRepository(database)
+	corpusRepo := repository.NewCorpusRepository(database)
 
 	// Initialize services
 	projectService := service.NewProjectService(projectRepo)
 	audioService := service.NewAudioFileService(audioRepo, uploadPath)
+	corpusService := service.NewCorpusService(corpusRepo, uploadPath)
 
 	// Initialize handlers
 	projectHandler, err := handler.NewProjectHandler(projectService)
@@ -46,9 +48,14 @@ func main() {
 		log.Fatalf("Failed to initialize project handler: %v", err)
 	}
 
-	audioHandler, err := handler.NewAudioHandler(projectService, audioService)
+	audioHandler, err := handler.NewAudioHandler(projectService, audioService, corpusService)
 	if err != nil {
 		log.Fatalf("Failed to initialize audio handler: %v", err)
+	}
+
+	corpusHandler, err := handler.NewCorpusHandler(projectService, corpusService)
+	if err != nil {
+		log.Fatalf("Failed to initialize corpus handler: %v", err)
 	}
 
 	// Initialize Echo
@@ -76,6 +83,11 @@ func main() {
 	e.POST("/projects/:id/audio", audioHandler.Upload)
 	e.DELETE("/projects/audio/:id", audioHandler.Delete)
 	e.GET("/uploads/:id", audioHandler.Serve)
+
+	// Corpus routes
+	e.POST("/projects/:id/corpus", corpusHandler.Upload)
+	e.DELETE("/projects/corpus/:id", corpusHandler.Delete)
+	e.GET("/projects/corpus/:id/segments", corpusHandler.ViewSegments)
 
 	// Get port from environment or use default
 	port := os.Getenv("PORT")

@@ -22,9 +22,11 @@ type ProjectHandler struct {
 func NewProjectHandler(service *service.ProjectService) (*ProjectHandler, error) {
 	// Create template with helper functions
 	funcMap := template.FuncMap{
-		"add": func(a, b int) int { return a + b },
-		"sub": func(a, b int) int { return a - b },
-		"eq":  func(a, b string) bool { return a == b },
+		"add":     func(a, b int) int { return a + b },
+		"sub":     func(a, b int) int { return a - b },
+		"eq":      func(a, b string) bool { return a == b },
+		"div":     func(a, b float64) float64 { return a / b },
+		"float64": func(i int64) float64 { return float64(i) },
 	}
 
 	tmpl, err := template.New("").Funcs(funcMap).ParseFS(ui.TemplatesFS, "templates/*.html", "templates/projects/*.html")

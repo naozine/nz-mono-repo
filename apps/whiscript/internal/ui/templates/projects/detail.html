@@ -44,7 +44,7 @@
     </div>
 </div>
 
-<div class="bg-white shadow rounded-lg p-6">
+<div class="bg-white shadow rounded-lg p-6 mb-6">
     <div class="flex justify-between items-center mb-6">
         <h3 class="text-2xl font-bold text-gray-900">Audio Files</h3>
         <button
@@ -70,7 +70,33 @@
     </div>
 </div>
 
-<!-- Upload Modal -->
+<div class="bg-white shadow rounded-lg p-6">
+    <div class="flex justify-between items-center mb-6">
+        <h3 class="text-2xl font-bold text-gray-900">Corpus Files</h3>
+        <button
+            class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+            _="on click toggle .hidden on #upload-corpus-modal">
+            Upload Corpus JSON
+        </button>
+    </div>
+
+    <div id="corpus-files-list">
+        {{ if .CorpusFiles }}
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {{ range .CorpusFiles }}
+            {{ template "projects/_corpus_card.html" . }}
+            {{ end }}
+        </div>
+        {{ else }}
+        <div class="text-center py-12 text-gray-500">
+            <p class="text-lg">No corpus files yet</p>
+            <p class="text-sm">Upload a WhisperX JSON file to get started</p>
+        </div>
+        {{ end }}
+    </div>
+</div>
+
+<!-- Upload Audio Modal -->
 <div id="upload-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
     <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
         <div class="flex justify-between items-center mb-4">
@@ -116,6 +142,68 @@
                 <button
                     type="submit"
                     class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">
+                    Upload
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Upload Corpus Modal -->
+<div id="upload-corpus-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+    <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-bold">Upload Corpus JSON</h3>
+            <button
+                class="text-gray-400 hover:text-gray-500"
+                _="on click toggle .hidden on #upload-corpus-modal">
+                <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+        <form
+            hx-post="/projects/{{ .Project.ID }}/corpus"
+            hx-encoding="multipart/form-data"
+            hx-target="#corpus-files-list"
+            hx-swap="innerHTML"
+            _="on htmx:afterRequest if event.detail.successful toggle .hidden on #upload-corpus-modal then reset() me">
+            <div class="mb-4">
+                <label class="block text-gray-700 text-sm font-bold mb-2" for="corpus_file">
+                    Corpus JSON File (WhisperX format, max 50MB)
+                </label>
+                <input
+                    type="file"
+                    id="corpus_file"
+                    name="corpus_file"
+                    accept=".json,application/json"
+                    required
+                    class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+            </div>
+            <div class="mb-4">
+                <label class="block text-gray-700 text-sm font-bold mb-2" for="audio_file_id">
+                    Associated Audio File (Optional)
+                </label>
+                <select
+                    id="audio_file_id"
+                    name="audio_file_id"
+                    class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                    <option value="">None</option>
+                    {{ range .AudioFiles }}
+                    <option value="{{ .ID }}">{{ .Name }}</option>
+                    {{ end }}
+                </select>
+            </div>
+            <div class="flex justify-end gap-2">
+                <button
+                    type="button"
+                    class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded"
+                    _="on click toggle .hidden on #upload-corpus-modal">
+                    Cancel
+                </button>
+                <button
+                    type="submit"
+                    class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
                     Upload
                 </button>
             </div>

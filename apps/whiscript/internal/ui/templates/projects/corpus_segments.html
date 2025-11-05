@@ -1,0 +1,72 @@
+{{ define "projects/corpus_segments.html" }}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ .CorpusFile.Name }} - Segments - Whiscript</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+</head>
+<body class="bg-gray-50">
+    <nav class="bg-white shadow-lg">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <h1 class="text-2xl font-bold text-gray-900">Whiscript</h1>
+                </div>
+                <div class="flex items-center">
+                    <a href="/projects" class="text-gray-700 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium">Projects</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div class="mb-6">
+            <a href="/projects/{{ .CorpusFile.ProjectID }}" class="text-blue-600 hover:text-blue-800">← Back to Project</a>
+        </div>
+
+        <div class="bg-white shadow rounded-lg p-6 mb-6">
+            <h2 class="text-3xl font-bold text-gray-900 mb-2">{{ .CorpusFile.Name }}</h2>
+            <div class="flex gap-4 text-sm text-gray-600">
+                <span>{{ .CorpusFile.SegmentCount }} segments</span>
+                <span>{{ printf "%.2f" (div (float64 .CorpusFile.FileSize) 1024.0) }} KB</span>
+                <span>Created: {{ .CorpusFile.CreatedAt.Format "2006-01-02 15:04" }}</span>
+            </div>
+        </div>
+
+        <div class="bg-white shadow rounded-lg p-6">
+            <h3 class="text-2xl font-bold text-gray-900 mb-6">Segments</h3>
+
+            {{ if .Segments }}
+            <div class="space-y-4">
+                {{ range .Segments }}
+                <div class="border rounded-lg p-4 hover:bg-gray-50 transition-colors">
+                    <div class="flex items-start justify-between mb-2">
+                        <div class="flex items-center gap-3">
+                            <span class="text-sm font-mono text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                                {{ printf "%.2f" .StartTime }}s - {{ printf "%.2f" .EndTime }}s
+                            </span>
+                            {{ if .Speaker }}
+                            <span class="text-xs font-semibold text-blue-600 bg-blue-100 px-2 py-1 rounded">
+                                Speaker: {{ .Speaker }}
+                            </span>
+                            {{ end }}
+                        </div>
+                        <span class="text-xs text-gray-400">#{{ .SegmentIndex }}</span>
+                    </div>
+                    <p class="text-gray-900">{{ .Text }}</p>
+                </div>
+                {{ end }}
+            </div>
+            {{ else }}
+            <div class="text-center py-12 text-gray-500">
+                <p class="text-lg">No segments found</p>
+            </div>
+            {{ end }}
+        </div>
+    </main>
+</body>
+</html>
+{{ end }}
