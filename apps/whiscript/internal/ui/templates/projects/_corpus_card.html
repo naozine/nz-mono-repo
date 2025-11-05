@@ -18,10 +18,19 @@
         <span>{{ .SegmentCount }} segments</span>
         <span>{{ printf "%.2f" (div (float64 .FileSize) 1024.0) }} KB</span>
     </div>
-    <a
-        href="/projects/corpus/{{ .ID }}/segments"
-        class="block w-full text-center bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
-        View Segments
-    </a>
+    <div class="flex gap-2">
+        {{ if .AudioFileID }}
+        <a
+            href="/projects/corpus/{{ .ID }}/editor"
+            class="flex-1 text-center bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+            Editor
+        </a>
+        {{ end }}
+        <a
+            href="/projects/corpus/{{ .ID }}/segments"
+            class="flex-1 text-center bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded">
+            View
+        </a>
+    </div>
 </div>
 {{ end }}

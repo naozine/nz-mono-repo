@@ -117,6 +117,53 @@ func (h *CorpusHandler) ViewSegments(c echo.Context) error {
 	return h.renderTemplate(c, "projects/corpus_segments.html", data)
 }
 
+// ViewEditor handles GET /projects/corpus/:id/editor
+func (h *CorpusHandler) ViewEditor(c echo.Context) error {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		return c.String(http.StatusBadRequest, "Invalid corpus file ID")
+	}
+
+	corpusFile, err := h.corpusService.GetFileByID(id)
+	if err != nil {
+		return c.String(http.StatusNotFound, "Corpus file not found")
+	}
+
+	// Check if audio file is associated
+	if corpusFile.AudioFileID == nil {
+		return c.String(http.StatusBadRequest, "No audio file associated with this corpus")
+	}
+
+	// Get gap threshold from query parameter (default: 2.0 seconds)
+	gapThreshold := 2.0
+	if thresholdStr := c.QueryParam("gap_threshold"); thresholdStr != "" {
+		if threshold, err := strconv.ParseFloat(thresholdStr, 64); err == nil && threshold > 0 {
+			gapThreshold = threshold
+		}
+	}
+
+	// Get project to retrieve project info
+	project, err := h.projectService.GetByID(corpusFile.ProjectID)
+	if err != nil {
+		return c.String(http.StatusNotFound, "Project not found")
+	}
+
+	// Get segments with gap information
+	segmentsWithGaps, err := h.corpusService.GetSegmentsWithGaps(id, gapThreshold)
+	if err != nil {
+		return c.String(http.StatusInternalServerError, "Failed to load segments")
+	}
+
+	data := map[string]interface{}{
+		"Project":          project,
+		"CorpusFile":       corpusFile,
+		"SegmentsWithGaps": segmentsWithGaps,
+		"GapThreshold":     gapThreshold,
+	}
+
+	return h.renderTemplate(c, "projects/corpus_editor.html", data)
+}
+
 // renderTemplate renders a template with the given data
 func (h *CorpusHandler) renderTemplate(c echo.Context, name string, data interface{}) error {
 	c.Response().Header().Set("Content-Type", "text/html; charset=utf-8")

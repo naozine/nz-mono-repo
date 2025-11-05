@@ -52,6 +52,34 @@ func (s *CorpusService) GetSegmentsByCorpusFileID(corpusFileID int64) ([]*model.
 	return s.repo.ListSegmentsByCorpusFileID(corpusFileID)
 }
 
+// GetSegmentsWithGaps retrieves segments with gap information
+func (s *CorpusService) GetSegmentsWithGaps(corpusFileID int64, gapThreshold float64) ([]*model.SegmentWithGap, error) {
+	segments, err := s.GetSegmentsByCorpusFileID(corpusFileID)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]*model.SegmentWithGap, len(segments))
+	for i, segment := range segments {
+		segWithGap := &model.SegmentWithGap{
+			Segment: segment,
+		}
+
+		// Calculate gap after this segment (if there's a next segment)
+		if i < len(segments)-1 {
+			nextSegment := segments[i+1]
+			gap := nextSegment.StartTime - segment.EndTime
+			if gap >= gapThreshold {
+				segWithGap.GapAfter = &gap
+			}
+		}
+
+		result[i] = segWithGap
+	}
+
+	return result, nil
+}
+
 // Upload handles corpus JSON file upload
 func (s *CorpusService) Upload(projectID int64, audioFileID *int64, file *multipart.FileHeader) (*model.CorpusFile, error) {
 	if projectID < 1 {

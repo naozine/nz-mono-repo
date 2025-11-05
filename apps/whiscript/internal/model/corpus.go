@@ -62,3 +62,9 @@ type WhisperXSegment struct {
 type WhisperXOutput struct {
 	Segments []WhisperXSegment `json:"segments"`
 }
+
+// SegmentWithGap represents a segment with optional gap information
+type SegmentWithGap struct {
+	Segment  *CorpusSegment
+	GapAfter *float64 // Gap duration in seconds after this segment
+}

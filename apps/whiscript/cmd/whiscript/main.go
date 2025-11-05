@@ -88,6 +88,7 @@ func main() {
 	e.POST("/projects/:id/corpus", corpusHandler.Upload)
 	e.DELETE("/projects/corpus/:id", corpusHandler.Delete)
 	e.GET("/projects/corpus/:id/segments", corpusHandler.ViewSegments)
+	e.GET("/projects/corpus/:id/editor", corpusHandler.ViewEditor)
 
 	// Get port from environment or use default
 	port := os.Getenv("PORT")
