@@ -80,7 +80,6 @@
                     <audio
                         id="audio-player-{{ .ID }}"
                         class="w-full audio-player"
-                        data-file-id="{{ .ID }}"
                         data-audio-file-id="{{ .AudioFileID }}"
                         controls
                         preload="metadata"
@@ -119,10 +118,10 @@
                 <div class="flex items-center gap-2">
                     <label class="text-sm text-gray-700">Gap Threshold:</label>
                     <select id="gap-threshold-select" class="border rounded px-2 py-1 text-sm" onchange="updateGapThreshold(this.value)">
-                        <option value="1.0" {{ if eq .GapThreshold 1.0 }}selected{{ end }}>1.0s</option>
-                        <option value="2.0" {{ if eq .GapThreshold 2.0 }}selected{{ end }}>2.0s</option>
-                        <option value="3.0" {{ if eq .GapThreshold 3.0 }}selected{{ end }}>3.0s</option>
-                        <option value="5.0" {{ if eq .GapThreshold 5.0 }}selected{{ end }}>5.0s</option>
+                        <option value="1.0">1.0s</option>
+                        <option value="2.0" selected>2.0s</option>
+                        <option value="3.0">3.0s</option>
+                        <option value="5.0">5.0s</option>
                     </select>
                 </div>
             </div>
@@ -136,9 +135,9 @@
                             <span class="text-xs font-semibold text-gray-600">
                                 {{ printf "%.2f" $segWithGap.Segment.StartTime }}s - {{ printf "%.2f" $segWithGap.Segment.EndTime }}s
                             </span>
-                            {{ if $segWithGap.Segment.Speaker }}
+                            {{ if $segWithGap.SpeakerLabel }}
                             <div class="text-xs text-purple-600 font-medium mt-1">
-                                {{ $segWithGap.Segment.Speaker }}
+                                {{ $segWithGap.SpeakerLabel }}
                             </div>
                             {{ end }}
                         </div>
@@ -147,12 +146,14 @@
                             <span class="segment-container"
                                   data-segment-id="{{ $segWithGap.Segment.ID }}"
                                   data-corpus-file-id="{{ $segWithGap.Segment.CorpusFileID }}"
+                                  data-audio-file-id="{{ if $segWithGap.AudioFileID }}{{ $segWithGap.AudioFileID }}{{ end }}"
                                   data-words="{{ $segWithGap.Segment.WordsJSON }}">
                             </span>
                             {{ else }}
                             <span class="segment-text"
                                   data-segment-id="{{ $segWithGap.Segment.ID }}"
                                   data-corpus-file-id="{{ $segWithGap.Segment.CorpusFileID }}"
+                                  data-audio-file-id="{{ if $segWithGap.AudioFileID }}{{ $segWithGap.AudioFileID }}{{ end }}"
                                   data-start-time="{{ $segWithGap.Segment.StartTime }}"
                                   data-end-time="{{ $segWithGap.Segment.EndTime }}">
                                 {{ $segWithGap.Segment.Text }}
@@ -182,14 +183,14 @@
 
             try {
                 const words = JSON.parse(wordsJSON);
-                const corpusFileId = container.dataset.corpusFileId;
+                const audioFileId = container.dataset.audioFileId;
 
                 words.forEach(word => {
                     const span = document.createElement('span');
                     span.className = 'word-text';
                     span.dataset.startTime = word.start;
                     span.dataset.endTime = word.end;
-                    span.dataset.corpusFileId = corpusFileId;
+                    span.dataset.audioFileId = audioFileId;
                     span.textContent = word.word;
                     container.appendChild(span);
                 });
@@ -203,11 +204,11 @@
         const audioPlayers = document.querySelectorAll('.audio-player');
         const syncCheckbox = document.getElementById('sync-checkbox');
 
-        // Create a mapping from corpus_file_id to audio player
-        const fileIdToPlayer = new Map();
+        // Create a mapping from audio_file_id to audio player
+        const audioFileIdToPlayer = new Map();
         {{ range .GroupFiles }}
         {{ if .AudioFileID }}
-        fileIdToPlayer.set({{ .ID }}, document.getElementById('audio-player-{{ .ID }}'));
+        audioFileIdToPlayer.set({{ .AudioFileID }}, document.getElementById('audio-player-{{ .ID }}'));
         {{ end }}
         {{ end }}
 
@@ -216,8 +217,8 @@
         clickableElements.forEach(element => {
             element.addEventListener('click', () => {
                 const startTime = parseFloat(element.dataset.startTime);
-                const corpusFileId = parseInt(element.dataset.corpusFileId);
-                const audioPlayer = fileIdToPlayer.get(corpusFileId);
+                const audioFileId = parseInt(element.dataset.audioFileId);
+                const audioPlayer = audioFileIdToPlayer.get(audioFileId);
 
                 if (audioPlayer) {
                     audioPlayer.currentTime = startTime;
@@ -280,15 +281,15 @@
 
         // Highlight active segments/words during playback
         audioPlayers.forEach(player => {
-            const corpusFileId = parseInt(player.dataset.fileId);
+            const audioFileId = parseInt(player.dataset.audioFileId);
 
             player.addEventListener('timeupdate', () => {
                 const currentTime = player.currentTime;
 
                 // Update highlights for this player's segments
                 clickableElements.forEach(element => {
-                    const elementFileId = parseInt(element.dataset.corpusFileId);
-                    if (elementFileId === corpusFileId) {
+                    const elementAudioFileId = parseInt(element.dataset.audioFileId);
+                    if (elementAudioFileId === audioFileId) {
                         const startTime = parseFloat(element.dataset.startTime);
                         const endTime = parseFloat(element.dataset.endTime);
 

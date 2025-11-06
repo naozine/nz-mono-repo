@@ -294,9 +294,11 @@
                             _="on change
                                if me.checked
                                  then remove .hidden from #speaker_label_{{ .ID }}
+                                 then set #speaker_label_input_{{ .ID }}.disabled to false
                                  then set #speaker_label_input_{{ .ID }}.required to true
                                else
                                  then add .hidden to #speaker_label_{{ .ID }}
+                                 then set #speaker_label_input_{{ .ID }}.disabled to true
                                  then set #speaker_label_input_{{ .ID }}.required to false
                                  then set #speaker_label_input_{{ .ID }}.value to ''
                                end">
@@ -310,6 +312,7 @@
                                     name="speaker_labels[]"
                                     id="speaker_label_input_{{ .ID }}"
                                     placeholder="e.g., Speaker A, John, Interviewer"
+                                    disabled
                                     class="text-sm shadow appearance-none border rounded w-full py-1 px-2 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
                             </div>
                         </div>

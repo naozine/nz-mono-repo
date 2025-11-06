@@ -328,7 +328,9 @@ func (s *CorpusService) GetMergedSegments(groupID int64, gapThreshold float64) (
 	result := make([]*model.SegmentWithGap, len(allSegments))
 	for i, mergedSeg := range allSegments {
 		segWithGap := &model.SegmentWithGap{
-			Segment: mergedSeg.Segment,
+			Segment:      mergedSeg.Segment,
+			SpeakerLabel: &mergedSeg.SpeakerLabel,
+			AudioFileID:  mergedSeg.AudioFileID,
 		}
 
 		// Calculate gap after this segment (if there's a next segment)

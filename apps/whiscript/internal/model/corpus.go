@@ -107,8 +107,10 @@ type WhisperXOutput struct {
 
 // SegmentWithGap represents a segment with optional gap information
 type SegmentWithGap struct {
-	Segment  *CorpusSegment
-	GapAfter *float64 // Gap duration in seconds after this segment
+	Segment      *CorpusSegment
+	GapAfter     *float64 // Gap duration in seconds after this segment
+	SpeakerLabel *string  // Speaker label (for grouped segments)
+	AudioFileID  *int64   // Audio file ID (for grouped segments)
 }
 
 // CorpusFileGroupCreateInput represents input for creating a corpus file group
