@@ -170,6 +170,91 @@ func (h *CorpusHandler) ViewEditor(c echo.Context) error {
 	return h.renderTemplate(c, "projects/corpus_editor.html", data)
 }
 
+// CreateGroup handles POST /projects/:id/corpus-groups
+func (h *CorpusHandler) CreateGroup(c echo.Context) error {
+	projectID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		return c.String(http.StatusBadRequest, "Invalid project ID")
+	}
+
+	// Parse form data
+	name := c.FormValue("name")
+	fileIDsStr := c.Request().Form["file_ids[]"]
+	speakerLabels := c.Request().Form["speaker_labels[]"]
+
+	if len(fileIDsStr) != len(speakerLabels) {
+		return c.String(http.StatusBadRequest, "File IDs and speaker labels must match")
+	}
+
+	// Convert file IDs to int64
+	fileIDs := make([]int64, len(fileIDsStr))
+	for i, idStr := range fileIDsStr {
+		id, err := strconv.ParseInt(idStr, 10, 64)
+		if err != nil {
+			return c.String(http.StatusBadRequest, "Invalid file ID")
+		}
+		fileIDs[i] = id
+	}
+
+	// Create group
+	_, err = h.corpusService.CreateGroup(projectID, name, fileIDs, speakerLabels)
+	if err != nil {
+		return c.String(http.StatusBadRequest, err.Error())
+	}
+
+	// Reload page
+	return c.NoContent(http.StatusOK)
+}
+
+// ViewGroupEditor handles GET /projects/corpus-groups/:id/editor
+func (h *CorpusHandler) ViewGroupEditor(c echo.Context) error {
+	groupID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		return c.String(http.StatusBadRequest, "Invalid group ID")
+	}
+
+	group, err := h.corpusService.GetGroupByID(groupID)
+	if err != nil {
+		return c.String(http.StatusNotFound, "Group not found")
+	}
+
+	// Get gap threshold from query parameter (default: 2.0 seconds)
+	gapThreshold := 2.0
+	if thresholdStr := c.QueryParam("gap_threshold"); thresholdStr != "" {
+		if threshold, err := strconv.ParseFloat(thresholdStr, 64); err == nil && threshold > 0 {
+			gapThreshold = threshold
+		}
+	}
+
+	// Get project
+	project, err := h.projectService.GetByID(group.ProjectID)
+	if err != nil {
+		return c.String(http.StatusNotFound, "Project not found")
+	}
+
+	// Get merged segments
+	segmentsWithGaps, err := h.corpusService.GetMergedSegments(groupID, gapThreshold)
+	if err != nil {
+		return c.String(http.StatusInternalServerError, "Failed to load segments")
+	}
+
+	// Get group files for audio players
+	groupFiles, err := h.corpusService.GetGroupFiles(groupID)
+	if err != nil {
+		return c.String(http.StatusInternalServerError, "Failed to load group files")
+	}
+
+	data := map[string]interface{}{
+		"Project":          project,
+		"Group":            group,
+		"SegmentsWithGaps": segmentsWithGaps,
+		"GroupFiles":       groupFiles,
+		"GapThreshold":     gapThreshold,
+	}
+
+	return h.renderTemplate(c, "projects/corpus_group_editor.html", data)
+}
+
 // renderTemplate renders a template with the given data
 func (h *CorpusHandler) renderTemplate(c echo.Context, name string, data interface{}) error {
 	c.Response().Header().Set("Content-Type", "text/html; charset=utf-8")

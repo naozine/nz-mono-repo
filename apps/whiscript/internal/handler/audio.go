@@ -73,10 +73,16 @@ func (h *AudioHandler) Detail(c echo.Context) error {
 		return c.String(http.StatusInternalServerError, "Failed to load corpus files")
 	}
 
+	corpusGroups, err := h.corpusService.ListGroupsByProjectID(id)
+	if err != nil {
+		return c.String(http.StatusInternalServerError, "Failed to load corpus groups")
+	}
+
 	data := map[string]interface{}{
-		"Project":     project,
-		"AudioFiles":  audioFiles,
-		"CorpusFiles": corpusFiles,
+		"Project":      project,
+		"AudioFiles":   audioFiles,
+		"CorpusFiles":  corpusFiles,
+		"CorpusGroups": corpusGroups,
 	}
 
 	return h.renderTemplate(c, "projects/detail.html", data)
@@ -101,13 +107,8 @@ func (h *AudioHandler) Upload(c echo.Context) error {
 		return c.String(http.StatusBadRequest, err.Error())
 	}
 
-	// Return updated audio files list
-	audioFiles, err := h.audioService.ListByProjectID(projectID)
-	if err != nil {
-		return c.String(http.StatusInternalServerError, "Failed to load audio files")
-	}
-
-	return h.renderTemplate(c, "projects/_audio_list.html", audioFiles)
+	// Return success response (page will reload via HTMX)
+	return c.NoContent(http.StatusOK)
 }
 
 // Delete handles DELETE /projects/audio/:id

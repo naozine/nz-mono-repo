@@ -7,6 +7,7 @@ import (
 	"mime/multipart"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -226,4 +227,129 @@ func (s *CorpusService) UpdateSegmentText(segmentID int64, text string) error {
 	}
 
 	return s.repo.UpdateSegmentText(segmentID, text)
+}
+
+// CreateGroup creates a new corpus file group and associates files with it
+func (s *CorpusService) CreateGroup(projectID int64, name string, fileIDs []int64, speakerLabels []string) (*model.CorpusFileGroup, error) {
+	if projectID < 1 {
+		return nil, fmt.Errorf("invalid project id")
+	}
+
+	if strings.TrimSpace(name) == "" {
+		return nil, fmt.Errorf("group name cannot be empty")
+	}
+
+	if len(fileIDs) != len(speakerLabels) {
+		return nil, fmt.Errorf("file IDs and speaker labels must have the same length")
+	}
+
+	// Create group
+	input := &model.CorpusFileGroupCreateInput{
+		ProjectID: projectID,
+		Name:      name,
+	}
+
+	group, err := s.repo.CreateGroup(input)
+	if err != nil {
+		return nil, err
+	}
+
+	// Associate files with group
+	for i, fileID := range fileIDs {
+		label := speakerLabels[i]
+		if err := s.repo.UpdateFileGroup(fileID, &group.ID, &label); err != nil {
+			return nil, fmt.Errorf("failed to associate file %d: %w", fileID, err)
+		}
+	}
+
+	return group, nil
+}
+
+// GetGroupByID retrieves a corpus file group by ID
+func (s *CorpusService) GetGroupByID(id int64) (*model.CorpusFileGroup, error) {
+	if id < 1 {
+		return nil, fmt.Errorf("invalid group id")
+	}
+	return s.repo.GetGroupByID(id)
+}
+
+// ListGroupsByProjectID retrieves all corpus file groups for a project
+func (s *CorpusService) ListGroupsByProjectID(projectID int64) ([]*model.CorpusFileGroup, error) {
+	if projectID < 1 {
+		return nil, fmt.Errorf("invalid project id")
+	}
+	return s.repo.ListGroupsByProjectID(projectID)
+}
+
+// GetMergedSegments retrieves and merges segments from all files in a group, sorted by time
+func (s *CorpusService) GetMergedSegments(groupID int64, gapThreshold float64) ([]*model.SegmentWithGap, error) {
+	if groupID < 1 {
+		return nil, fmt.Errorf("invalid group id")
+	}
+
+	// Get all files in the group
+	files, err := s.repo.ListFilesByGroupID(groupID)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(files) == 0 {
+		return nil, fmt.Errorf("no files in group")
+	}
+
+	// Collect all segments with speaker labels
+	var allSegments []*model.MergedSegment
+	for _, file := range files {
+		segments, err := s.repo.ListSegmentsByCorpusFileID(file.ID)
+		if err != nil {
+			return nil, err
+		}
+
+		speakerLabel := "Unknown"
+		if file.SpeakerLabel != nil {
+			speakerLabel = *file.SpeakerLabel
+		}
+
+		for _, seg := range segments {
+			allSegments = append(allSegments, &model.MergedSegment{
+				Segment:      seg,
+				SpeakerLabel: speakerLabel,
+				AudioFileID:  file.AudioFileID,
+			})
+		}
+	}
+
+	// Sort by start time
+	sort.Slice(allSegments, func(i, j int) bool {
+		return allSegments[i].Segment.StartTime < allSegments[j].Segment.StartTime
+	})
+
+	// Calculate gaps
+	result := make([]*model.SegmentWithGap, len(allSegments))
+	for i, mergedSeg := range allSegments {
+		segWithGap := &model.SegmentWithGap{
+			Segment: mergedSeg.Segment,
+		}
+
+		// Calculate gap after this segment (if there's a next segment)
+		if i < len(allSegments)-1 {
+			nextSeg := allSegments[i+1]
+			gap := nextSeg.Segment.StartTime - mergedSeg.Segment.EndTime
+			if gap >= gapThreshold {
+				segWithGap.GapAfter = &gap
+			}
+		}
+
+		result[i] = segWithGap
+	}
+
+	return result, nil
+}
+
+// GetGroupFiles retrieves all files in a group with their audio file info
+func (s *CorpusService) GetGroupFiles(groupID int64) ([]*model.CorpusFile, error) {
+	if groupID < 1 {
+		return nil, fmt.Errorf("invalid group id")
+	}
+	return s.repo.ListFilesByGroupID(groupID)
 }

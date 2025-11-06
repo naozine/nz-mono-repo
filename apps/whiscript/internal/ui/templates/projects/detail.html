@@ -70,7 +70,7 @@
     </div>
 </div>
 
-<div class="bg-white shadow rounded-lg p-6">
+<div class="bg-white shadow rounded-lg p-6 mb-6">
     <div class="flex justify-between items-center mb-6">
         <h3 class="text-2xl font-bold text-gray-900">Corpus Files</h3>
         <button
@@ -96,6 +96,39 @@
     </div>
 </div>
 
+<div class="bg-white shadow rounded-lg p-6">
+    <div class="flex justify-between items-center mb-6">
+        <h3 class="text-2xl font-bold text-gray-900">Corpus Groups (Multi-Speaker)</h3>
+        <button
+            class="bg-purple-500 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded"
+            _="on click toggle .hidden on #create-group-modal">
+            Create Group
+        </button>
+    </div>
+
+    <div id="corpus-groups-list">
+        {{ if .CorpusGroups }}
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {{ range .CorpusGroups }}
+            <div class="bg-gray-50 rounded-lg p-4 border border-gray-200 hover:shadow-md transition-shadow">
+                <h4 class="font-bold text-lg mb-2">{{ .Name }}</h4>
+                <p class="text-sm text-gray-600 mb-4">Created: {{ .CreatedAt.Format "2006-01-02 15:04" }}</p>
+                <a href="/projects/corpus-groups/{{ .ID }}/editor"
+                   class="inline-block bg-purple-500 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded text-sm">
+                    Open Editor
+                </a>
+            </div>
+            {{ end }}
+        </div>
+        {{ else }}
+        <div class="text-center py-12 text-gray-500">
+            <p class="text-lg">No corpus groups yet</p>
+            <p class="text-sm">Create a group to combine multiple speakers' audio files</p>
+        </div>
+        {{ end }}
+    </div>
+</div>
+
 <!-- Upload Audio Modal -->
 <div id="upload-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
     <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
@@ -112,9 +145,7 @@
         <form
             hx-post="/projects/{{ .Project.ID }}/audio"
             hx-encoding="multipart/form-data"
-            hx-target="#audio-files-list"
-            hx-swap="innerHTML"
-            _="on htmx:afterRequest if event.detail.successful toggle .hidden on #upload-modal then reset() me">
+            _="on htmx:afterRequest if event.detail.successful then window.location.reload()">
             <div class="mb-4">
                 <label class="block text-gray-700 text-sm font-bold mb-2" for="audio_file">
                     Audio File (MP3 or WAV, max 100MB)
@@ -205,6 +236,106 @@
                     type="submit"
                     class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
                     Upload
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Create Group Modal -->
+<div id="create-group-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+    <div class="relative top-20 mx-auto p-5 border w-[600px] shadow-lg rounded-md bg-white">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-bold">Create Corpus Group</h3>
+            <button
+                class="text-gray-400 hover:text-gray-500"
+                _="on click toggle .hidden on #create-group-modal">
+                <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+        <form
+            hx-post="/projects/{{ .Project.ID }}/corpus-groups"
+            hx-encoding="multipart/form-data"
+            _="on htmx:afterRequest if event.detail.successful then window.location.reload()">
+            <div class="mb-4">
+                <label class="block text-gray-700 text-sm font-bold mb-2" for="group_name">
+                    Group Name
+                </label>
+                <input
+                    type="text"
+                    id="group_name"
+                    name="name"
+                    required
+                    placeholder="e.g., Interview with John and Jane"
+                    class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+            </div>
+
+            <div class="mb-4">
+                <label class="block text-gray-700 text-sm font-bold mb-2">
+                    Select Corpus Files and Assign Speaker Labels
+                </label>
+                <div class="text-sm text-gray-600 mb-3">
+                    Select 2 or more corpus files to group together. Each should have an associated audio file.
+                </div>
+
+                {{ if .CorpusFiles }}
+                <div class="max-h-64 overflow-y-auto border rounded p-3 space-y-3">
+                    {{ range .CorpusFiles }}
+                    {{ if .AudioFileID }}
+                    <div class="flex items-start gap-3 p-2 hover:bg-gray-50 rounded">
+                        <input
+                            type="checkbox"
+                            name="file_ids[]"
+                            value="{{ .ID }}"
+                            id="file_{{ .ID }}"
+                            class="mt-1 corpus-file-checkbox"
+                            _="on change
+                               if me.checked
+                                 then remove .hidden from #speaker_label_{{ .ID }}
+                                 then set #speaker_label_input_{{ .ID }}.required to true
+                               else
+                                 then add .hidden to #speaker_label_{{ .ID }}
+                                 then set #speaker_label_input_{{ .ID }}.required to false
+                                 then set #speaker_label_input_{{ .ID }}.value to ''
+                               end">
+                        <div class="flex-1">
+                            <label for="file_{{ .ID }}" class="font-medium cursor-pointer">{{ .Name }}</label>
+                            <p class="text-xs text-gray-500">{{ .OriginalFilename }} ({{ .SegmentCount }} segments)</p>
+                            <div id="speaker_label_{{ .ID }}" class="hidden mt-2">
+                                <label class="block text-xs text-gray-700 mb-1">Speaker Label:</label>
+                                <input
+                                    type="text"
+                                    name="speaker_labels[]"
+                                    id="speaker_label_input_{{ .ID }}"
+                                    placeholder="e.g., Speaker A, John, Interviewer"
+                                    class="text-sm shadow appearance-none border rounded w-full py-1 px-2 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                            </div>
+                        </div>
+                    </div>
+                    {{ end }}
+                    {{ end }}
+                </div>
+                {{ else }}
+                <div class="text-center py-8 text-gray-500">
+                    <p class="text-sm">No corpus files with associated audio files available</p>
+                    <p class="text-xs">Upload corpus files and link them to audio files first</p>
+                </div>
+                {{ end }}
+            </div>
+
+            <div class="flex justify-end gap-2">
+                <button
+                    type="button"
+                    class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded"
+                    _="on click toggle .hidden on #create-group-modal">
+                    Cancel
+                </button>
+                <button
+                    type="submit"
+                    class="bg-purple-500 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded">
+                    Create Group
                 </button>
             </div>
         </form>

@@ -90,6 +90,10 @@ func main() {
 	e.GET("/projects/corpus/:id/segments", corpusHandler.ViewSegments)
 	e.GET("/projects/corpus/:id/editor", corpusHandler.ViewEditor)
 
+	// Corpus group routes
+	e.POST("/projects/:id/corpus-groups", corpusHandler.CreateGroup)
+	e.GET("/projects/corpus-groups/:id/editor", corpusHandler.ViewGroupEditor)
+
 	// Get port from environment or use default
 	port := os.Getenv("PORT")
 	if port == "" {

@@ -207,3 +207,75 @@ func (r *CorpusRepository) UpdateSegmentText(id int64, text string) error {
 
 	return nil
 }
+
+// CreateGroup creates a new corpus file group
+func (r *CorpusRepository) CreateGroup(input *model.CorpusFileGroupCreateInput) (*model.CorpusFileGroup, error) {
+	now := time.Now()
+	query := `INSERT INTO corpus_file_groups (project_id, name, created_at, updated_at)
+	          VALUES (?, ?, ?, ?)`
+
+	result, err := r.db.Exec(query, input.ProjectID, input.Name, now, now)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create corpus file group: %w", err)
+	}
+
+	id, err := result.LastInsertId()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get last insert id: %w", err)
+	}
+
+	return r.GetGroupByID(id)
+}
+
+// GetGroupByID retrieves a corpus file group by ID
+func (r *CorpusRepository) GetGroupByID(id int64) (*model.CorpusFileGroup, error) {
+	var group model.CorpusFileGroup
+	query := "SELECT * FROM corpus_file_groups WHERE id = ?"
+	if err := r.db.Get(&group, query, id); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("corpus file group not found")
+		}
+		return nil, fmt.Errorf("failed to get corpus file group: %w", err)
+	}
+	return &group, nil
+}
+
+// ListGroupsByProjectID retrieves all corpus file groups for a project
+func (r *CorpusRepository) ListGroupsByProjectID(projectID int64) ([]*model.CorpusFileGroup, error) {
+	var groups []*model.CorpusFileGroup
+	query := "SELECT * FROM corpus_file_groups WHERE project_id = ? ORDER BY created_at DESC"
+	if err := r.db.Select(&groups, query, projectID); err != nil {
+		return nil, fmt.Errorf("failed to select corpus file groups: %w", err)
+	}
+	return groups, nil
+}
+
+// UpdateFileGroup updates the group_id and speaker_label of a corpus file
+func (r *CorpusRepository) UpdateFileGroup(fileID int64, groupID *int64, speakerLabel *string) error {
+	query := "UPDATE corpus_files SET group_id = ?, speaker_label = ?, updated_at = ? WHERE id = ?"
+	result, err := r.db.Exec(query, groupID, speakerLabel, time.Now(), fileID)
+	if err != nil {
+		return fmt.Errorf("failed to update corpus file group: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+
+	if rowsAffected == 0 {
+		return fmt.Errorf("corpus file not found")
+	}
+
+	return nil
+}
+
+// ListFilesByGroupID retrieves all corpus files in a group
+func (r *CorpusRepository) ListFilesByGroupID(groupID int64) ([]*model.CorpusFile, error) {
+	var files []*model.CorpusFile
+	query := "SELECT * FROM corpus_files WHERE group_id = ? ORDER BY speaker_label ASC"
+	if err := r.db.Select(&files, query, groupID); err != nil {
+		return nil, fmt.Errorf("failed to select corpus files by group: %w", err)
+	}
+	return files, nil
+}

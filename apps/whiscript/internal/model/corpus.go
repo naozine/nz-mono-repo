@@ -10,6 +10,8 @@ type CorpusFile struct {
 	ID               int64     `db:"id" json:"id"`
 	ProjectID        int64     `db:"project_id" json:"project_id"`
 	AudioFileID      *int64    `db:"audio_file_id" json:"audio_file_id,omitempty"`
+	GroupID          *int64    `db:"group_id" json:"group_id,omitempty"`
+	SpeakerLabel     *string   `db:"speaker_label" json:"speaker_label,omitempty"`
 	Name             string    `db:"name" json:"name"`
 	OriginalFilename string    `db:"original_filename" json:"original_filename"`
 	FilePath         string    `db:"file_path" json:"file_path"`
@@ -17,6 +19,15 @@ type CorpusFile struct {
 	SegmentCount     int       `db:"segment_count" json:"segment_count"`
 	CreatedAt        time.Time `db:"created_at" json:"created_at"`
 	UpdatedAt        time.Time `db:"updated_at" json:"updated_at"`
+}
+
+// CorpusFileGroup represents a group of corpus files for multi-speaker conversations
+type CorpusFileGroup struct {
+	ID        int64     `db:"id" json:"id"`
+	ProjectID int64     `db:"project_id" json:"project_id"`
+	Name      string    `db:"name" json:"name"`
+	CreatedAt time.Time `db:"created_at" json:"created_at"`
+	UpdatedAt time.Time `db:"updated_at" json:"updated_at"`
 }
 
 // CorpusSegment represents a corpus segment entity
@@ -98,4 +109,23 @@ type WhisperXOutput struct {
 type SegmentWithGap struct {
 	Segment  *CorpusSegment
 	GapAfter *float64 // Gap duration in seconds after this segment
+}
+
+// CorpusFileGroupCreateInput represents input for creating a corpus file group
+type CorpusFileGroupCreateInput struct {
+	ProjectID int64
+	Name      string
+}
+
+// GroupedCorpusFile represents a corpus file with its group info
+type GroupedCorpusFile struct {
+	File  *CorpusFile
+	Group *CorpusFileGroup
+}
+
+// MergedSegment represents a segment with speaker information for grouped display
+type MergedSegment struct {
+	Segment      *CorpusSegment
+	SpeakerLabel string
+	AudioFileID  *int64
 }
