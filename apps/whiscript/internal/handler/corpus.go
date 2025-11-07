@@ -255,6 +255,53 @@ func (h *CorpusHandler) ViewGroupEditor(c echo.Context) error {
 	return h.renderTemplate(c, "projects/corpus_group_editor.html", data)
 }
 
+// RefineGroupSegments handles POST /projects/corpus-groups/:id/refine
+// This endpoint analyzes word-level timing and re-segments based on speaker changes
+func (h *CorpusHandler) RefineGroupSegments(c echo.Context) error {
+	groupID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid group ID"})
+	}
+
+	// Get parameters with defaults
+	minDuration := 0.01 // 10ms minimum
+	maxDuration := 2.0  // 2s maximum
+	gapThreshold := 0.5 // 0.5s gap threshold
+
+	// Allow customization via query params
+	if minStr := c.QueryParam("min_duration"); minStr != "" {
+		if min, err := strconv.ParseFloat(minStr, 64); err == nil && min > 0 {
+			minDuration = min
+		}
+	}
+	if maxStr := c.QueryParam("max_duration"); maxStr != "" {
+		if max, err := strconv.ParseFloat(maxStr, 64); err == nil && max > 0 {
+			maxDuration = max
+		}
+	}
+	if gapStr := c.QueryParam("gap_threshold"); gapStr != "" {
+		if gap, err := strconv.ParseFloat(gapStr, 64); err == nil && gap > 0 {
+			gapThreshold = gap
+		}
+	}
+
+	// Refine segments
+	refinedSegments, err := h.corpusService.RefineSegmentsByWords(groupID, minDuration, maxDuration, gapThreshold)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+
+	// Return refined segments as JSON for testing
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"group_id":         groupID,
+		"min_duration":     minDuration,
+		"max_duration":     maxDuration,
+		"gap_threshold":    gapThreshold,
+		"segments_count":   len(refinedSegments),
+		"refined_segments": refinedSegments,
+	})
+}
+
 // renderTemplate renders a template with the given data
 func (h *CorpusHandler) renderTemplate(c echo.Context, name string, data interface{}) error {
 	c.Response().Header().Set("Content-Type", "text/html; charset=utf-8")

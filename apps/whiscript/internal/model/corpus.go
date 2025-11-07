@@ -89,6 +89,20 @@ type Word struct {
 	Word  string  `json:"word"`
 	Start float64 `json:"start"`
 	End   float64 `json:"end"`
+	Score float64 `json:"score,omitempty"`
+}
+
+// Duration returns the duration of the word in seconds
+func (w *Word) Duration() float64 {
+	return w.End - w.Start
+}
+
+// WordWithSpeaker represents a word with speaker information for merging
+type WordWithSpeaker struct {
+	Word
+	Speaker      string
+	CorpusFileID int64
+	AudioFileID  *int64
 }
 
 // WhisperXSegment represents a segment in WhisperX JSON format

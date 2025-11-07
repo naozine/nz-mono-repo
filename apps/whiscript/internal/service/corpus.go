@@ -355,3 +355,191 @@ func (s *CorpusService) GetGroupFiles(groupID int64) ([]*model.CorpusFile, error
 	}
 	return s.repo.ListFilesByGroupID(groupID)
 }
+
+// GetAllWordsFromGroup retrieves all words from all corpus files in a group with speaker info
+func (s *CorpusService) GetAllWordsFromGroup(groupID int64) ([]*model.WordWithSpeaker, error) {
+	if groupID < 1 {
+		return nil, fmt.Errorf("invalid group id")
+	}
+
+	// Get all files in the group
+	files, err := s.repo.ListFilesByGroupID(groupID)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(files) == 0 {
+		return nil, fmt.Errorf("no files in group")
+	}
+
+	// Collect all words with speaker labels
+	var allWords []*model.WordWithSpeaker
+	for _, file := range files {
+		segments, err := s.repo.ListSegmentsByCorpusFileID(file.ID)
+		if err != nil {
+			return nil, err
+		}
+
+		speakerLabel := "Unknown"
+		if file.SpeakerLabel != nil {
+			speakerLabel = *file.SpeakerLabel
+		}
+
+		for _, seg := range segments {
+			words, err := seg.GetWords()
+			if err != nil {
+				continue // Skip segments with invalid word JSON
+			}
+
+			for _, word := range words {
+				allWords = append(allWords, &model.WordWithSpeaker{
+					Word:         word,
+					Speaker:      speakerLabel,
+					CorpusFileID: file.ID,
+					AudioFileID:  file.AudioFileID,
+				})
+			}
+		}
+	}
+
+	// Sort by start time
+	sort.Slice(allWords, func(i, j int) bool {
+		return allWords[i].Start < allWords[j].Start
+	})
+
+	return allWords, nil
+}
+
+// RefinedSegmentInput represents input for creating refined segments
+type RefinedSegmentInput struct {
+	CorpusFileID int64
+	Speaker      string
+	AudioFileID  *int64
+	StartTime    float64
+	EndTime      float64
+	Text         string
+	Words        []model.Word
+}
+
+// RefineSegmentsByWords re-segments corpus files based on word-level timing and speaker changes
+func (s *CorpusService) RefineSegmentsByWords(groupID int64, minDuration float64, maxDuration float64, gapThreshold float64) ([]*RefinedSegmentInput, error) {
+	if groupID < 1 {
+		return nil, fmt.Errorf("invalid group id")
+	}
+
+	// Get all words from group
+	allWords, err := s.GetAllWordsFromGroup(groupID)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(allWords) == 0 {
+		return nil, fmt.Errorf("no words found in group")
+	}
+
+	// Filter out words with abnormal duration
+	validWords := filterWordsByDuration(allWords, minDuration, maxDuration)
+
+	if len(validWords) == 0 {
+		return nil, fmt.Errorf("no valid words after filtering")
+	}
+
+	// Re-segment based on speaker changes and gaps
+	segments := splitIntoSegments(validWords, gapThreshold)
+
+	return segments, nil
+}
+
+// filterWordsByDuration filters words with abnormal durations
+func filterWordsByDuration(words []*model.WordWithSpeaker, minDuration float64, maxDuration float64) []*model.WordWithSpeaker {
+	filtered := make([]*model.WordWithSpeaker, 0, len(words))
+
+	for _, word := range words {
+		duration := word.Duration()
+		if duration >= minDuration && duration <= maxDuration {
+			filtered = append(filtered, word)
+		}
+	}
+
+	return filtered
+}
+
+// splitIntoSegments splits words into segments based on speaker changes and gaps
+func splitIntoSegments(words []*model.WordWithSpeaker, gapThreshold float64) []*RefinedSegmentInput {
+	if len(words) == 0 {
+		return nil
+	}
+
+	segments := make([]*RefinedSegmentInput, 0)
+	currentSegment := &RefinedSegmentInput{
+		CorpusFileID: words[0].CorpusFileID,
+		Speaker:      words[0].Speaker,
+		AudioFileID:  words[0].AudioFileID,
+		StartTime:    words[0].Start,
+		Words:        []model.Word{words[0].Word},
+	}
+
+	for i := 1; i < len(words); i++ {
+		word := words[i]
+		prevWord := words[i-1]
+
+		// Calculate gap between previous word and current word
+		gap := word.Start - prevWord.End
+
+		// Determine if we should start a new segment
+		shouldStartNewSegment := false
+
+		// Condition 1: Speaker changed
+		if word.Speaker != prevWord.Speaker {
+			shouldStartNewSegment = true
+		}
+
+		// Condition 2: Gap exceeds threshold
+		if gap > gapThreshold {
+			shouldStartNewSegment = true
+		}
+
+		if shouldStartNewSegment {
+			// Finalize current segment
+			currentSegment.EndTime = prevWord.End
+			currentSegment.Text = buildTextFromWords(currentSegment.Words)
+			segments = append(segments, currentSegment)
+
+			// Start new segment
+			currentSegment = &RefinedSegmentInput{
+				CorpusFileID: word.CorpusFileID,
+				Speaker:      word.Speaker,
+				AudioFileID:  word.AudioFileID,
+				StartTime:    word.Start,
+				Words:        []model.Word{word.Word},
+			}
+		} else {
+			// Add word to current segment
+			currentSegment.Words = append(currentSegment.Words, word.Word)
+		}
+	}
+
+	// Finalize last segment
+	if len(currentSegment.Words) > 0 {
+		lastWord := words[len(words)-1]
+		currentSegment.EndTime = lastWord.End
+		currentSegment.Text = buildTextFromWords(currentSegment.Words)
+		segments = append(segments, currentSegment)
+	}
+
+	return segments
+}
+
+// buildTextFromWords concatenates words to form segment text
+func buildTextFromWords(words []model.Word) string {
+	if len(words) == 0 {
+		return ""
+	}
+
+	text := ""
+	for _, word := range words {
+		text += word.Word
+	}
+
+	return text
+}

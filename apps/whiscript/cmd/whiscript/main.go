@@ -93,6 +93,7 @@ func main() {
 	// Corpus group routes
 	e.POST("/projects/:id/corpus-groups", corpusHandler.CreateGroup)
 	e.GET("/projects/corpus-groups/:id/editor", corpusHandler.ViewGroupEditor)
+	e.POST("/projects/corpus-groups/:id/refine", corpusHandler.RefineGroupSegments)
 
 	// Get port from environment or use default
 	port := os.Getenv("PORT")
