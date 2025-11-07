@@ -9,10 +9,12 @@ CREATE TABLE projects (
 );
 
 CREATE INDEX idx_projects_name ON projects(name);
+CREATE INDEX idx_projects_created_at ON projects(created_at);
 -- +goose StatementEnd
 
 -- +goose Down
 -- +goose StatementBegin
+DROP INDEX IF EXISTS idx_projects_created_at;
 DROP INDEX IF EXISTS idx_projects_name;
 DROP TABLE IF EXISTS projects;
 -- +goose StatementEnd

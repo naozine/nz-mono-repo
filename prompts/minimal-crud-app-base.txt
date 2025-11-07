@@ -1,138 +1,67 @@
-Echo + Standard Go Project Layoutで、最小CRUDアプリを生成してください。
+「echo + Standard Go Project Layout」で、最小CRUDアプリを生成してください。
 
-【基本要件】
-- アプリ名: whiscript（apps/whiscript配下）
-- 認証なし、SQLite + sqlx、htmx/Alpine/TailwindはCDN
-- Projectの一覧・作成・編集・削除（htmxで非同期）
-- internal/{handler,service,repository,model}で責務分割
-- gooseでマイグレーション、html/templateでテンプレート
-- sqlxでボイラープレート削減（database/sqlではなくsqlxを使用）
-- Makefile（dev/build/migrate等）
+【アプリ概要】
+- 名前: whiscript（apps/whiscript 配下）
+- 認証なし
+- DB: SQLite + sqlx
+- Web: htmx + _hyperscript + Tailwind（すべてCDN、Alpine.jsは使わない）
+- テンプレート: html/template
+- マイグレーション: goose
+- Makefile: dev/build/migrate など
 
-【技術的制約と対応】
-1. **go:embed**: `..` を含むパスは使えません
-   → templatesとmigrationsを埋め込むパッケージと同階層に配置
+【機能（Project CRUD）】
+- Projectの一覧・作成・編集・削除（HTMXで非同期更新）
+- 一覧はサーバサイドページネーション（クエリ: page, q, sort）
+- HTMXの部分テンプレート（list/table行/フォーム/モーダル）を返す
+- 差分置換には Idiomorph を使用（hx-swap="morph"）
 
-2. **go workspace**: このリポジトリはworkspaceを使用
-   → go.mod作成後すぐに `go work use .` を実行
+【構成】
+- Standard Go Project Layout に準拠
+- internal/{handler,service,repository,model}
+- cmd/whiscript（main）, apps/whiscript（アプリ資材）
+- migrations/（goose用）
+- web/templates/（html/template; base, partials）
+- web/static/（必要最小のJS/CSS。基本はCDN）
 
-3. **sqlx使用**: database/sqlではなくgithub.com/jmoiron/sqlxを使用
-   → modelに `db:"column_name"` タグを追加
-   → repository層で db.Select(), db.Get() を活用
+【実装要件（抜粋）】
+- ルータ: Echo v4
+- DB接続は `internal/repository/db.go` に集約
+- repositoryはsqlxでCRUD（NamedExec/Select, StructScan）
+- serviceはビジネスロジック・入力検証
+- handlerはEchoでHTTP, HTMXリクエスト（`HX-Request`検知）に応じて
+  - 非HTMX: layout込みのフルHTML
+  - HTMX: 部分テンプレート断片を返す（例: `<tbody>…</tbody>` or `<tr id="row-:id">…`）
+- HTMXイベント: 成功時は対象要素を `hx-swap="morph"` で差し替え、失敗時はエラー断片返却
+- SSEやWebSocketは不要（今回はCRUDのみ）
+- CDN読み込み例（layoutに記載）:
+  - Tailwind: https://cdn.tailwindcss.com
+  - htmx: https://unpkg.com/htmx.org@1.9.12
+  - _hyperscript: https://unpkg.com/hyperscript.org@0.9.12
+  - idiomorph: https://unpkg.com/idiomorph@0.3.0 （`hx-swap="morph"`用拡張）
+- テンプレ名例:
+  - `base.html`（`{{ block "content" . }}{{ end }}`）
+  - `projects/index.html`（一覧ページ／非HTMX）
+  - `projects/_table.html`（`<table>`全体）
+  - `projects/_tbody.html`（`<tbody>`部分）
+  - `projects/_row.html`（1行）
+  - `projects/_form.html`（作成/編集フォーム）
+  - `projects/_toast.html`（通知）
+- ルート例:
+  - GET `/projects`（非HTMX: index, HTMX: `_table` or `_tbody`）
+  - POST `/projects`（作成→`_row`を返す）
+  - GET `/projects/:id/edit`（`_form`返す）
+  - POST `/projects/:id`（更新→`_row`差し替え）
+  - DELETE `/projects/:id`（削除→`<tr>`をremoveする断片 or 204＋クライアント側remove）
+- Makefile タスク例:
+  - `make dev`（`go run ./cmd/whiscript`）
+  - `make build`（バイナリ出力）
+  - `make migrate-up / migrate-down / migrate-new name=xxx`
+- goose初期マイグレーション例（projectsテーブル）
+  - id, name, description, created_at, updated_at（インデックス適宜）
 
-【最終構成】
-```
-apps/whiscript/
-├── cmd/whiscript/main.go
-├── internal/
-│   ├── ui/
-│   │   ├── embed.go         # //go:embed templates/*.html
-│   │   └── templates/       # index.html, project-item.html
-│   ├── db/
-│   │   ├── embed.go         # //go:embed migrations/*.sql + Open()
-│   │   └── migrations/      # 00001_create_projects.sql
-│   ├── handler/project.go
-│   ├── service/project.go
-│   ├── repository/project.go  # *sqlx.DB を使用
-│   └── model/project.go       # db:"" タグ付き
-├── Makefile
-└── go.mod                    # sqlx依存を含む
-```
-
-【作業順序】
-1. ディレクトリ構造作成
-2. go.mod作成（sqlx依存を含む） → **即座に `go work use .` 実行**
-3. 各層の実装（model → repository → service → handler）
-   - model: `db:"column_name"` タグを全フィールドに追加
-   - repository: *sqlx.DB を受け取り、Select/Get を使用
-4. internal/ui/embed.go作成 + templates/配置
-5. internal/db/embed.go作成（Open関数で*sqlx.DBを返す） + migrations/配置
-6. cmd/whiscript/main.go作成（db.Open()を使用）
-7. Makefile作成
-8. ビルド確認
-
-【重要な実装ポイント】
-
-## model/project.go
-```go
-type Project struct {
-    ID          int64     `db:"id" json:"id"`
-    Name        string    `db:"name" json:"name"`
-    Description string    `db:"description" json:"description"`
-    CreatedAt   time.Time `db:"created_at" json:"created_at"`
-    UpdatedAt   time.Time `db:"updated_at" json:"updated_at"`
-}
-```
-
-## repository/project.go
-```go
-import "github.com/jmoiron/sqlx"
-
-type ProjectRepository struct {
-    db *sqlx.DB
-}
-
-func (r *ProjectRepository) FindAll() ([]*model.Project, error) {
-    var projects []*model.Project
-    query := `SELECT * FROM projects ORDER BY created_at DESC`
-    if err := r.db.Select(&projects, query); err != nil {
-        return nil, err
-    }
-    return projects, nil
-}
-
-func (r *ProjectRepository) FindByID(id int64) (*model.Project, error) {
-    var project model.Project
-    if err := r.db.Get(&project, "SELECT * FROM projects WHERE id = ?", id); err != nil {
-        if err == sql.ErrNoRows {
-            return nil, nil
-        }
-        return nil, err
-    }
-    return &project, nil
-}
-```
-
-## internal/db/embed.go
-```go
-import "github.com/jmoiron/sqlx"
-
-func Open(dbPath string) (*sqlx.DB, error) {
-    db, err := sqlx.Connect("sqlite3", dbPath)
-    if err != nil {
-        return nil, fmt.Errorf("failed to connect: %w", err)
-    }
-    return db, nil
-}
-
-func RunMigrations(db *sql.DB) error {
-    // gooseは*sql.DBを要求するため、sqlx.DB.DBを渡す
-    // ...
-}
-```
-
-## cmd/whiscript/main.go
-```go
-database, err := db.Open(dbPath)  // *sqlx.DB
-if err != nil {
-    log.Fatal(err)
-}
-defer database.Close()
-
-// マイグレーション実行（goose用に内部のsql.DBを渡す）
-if err := db.RunMigrations(database.DB); err != nil {
-    log.Fatal(err)
-}
-
-projectRepo := repository.NewProjectRepository(database)
-```
-
-## go.mod
-```
-require (
-    github.com/jmoiron/sqlx v1.4.0
-    github.com/labstack/echo/v4 v4.12.0
-    github.com/mattn/go-sqlite3 v1.14.24
-    github.com/pressly/goose/v3 v3.23.1
-)
-```
+【HTMXのHTML要件（例）】
+- 検索: `<input id="q" hx-get="/projects" hx-trigger="keyup changed delay:300ms" hx-target="#projects-tbody" hx-push-url="true">`
+- ソート: `<a hx-get="/projects?sort=name.asc" hx-target="#projects-tbody" hx-push-url="true">Name</a>`
+- 追加: `<form hx-post="/projects" hx-target="#projects-tbody" hx-swap="beforeend morph">…`
+- 更新: `<form hx-post="/projects/:id" hx-target="#row-:id" hx-swap="morph">…`
+- 削除: `<button hx-delete="/projects/:id" hx-target="#row-:id" hx-swap="outerHTML">削除</button>`

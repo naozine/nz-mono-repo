@@ -1,0 +1,178 @@
+{{ define "projects/index.html" }}
+{{ template "base.html" . }}
+{{ end }}
+
+{{ define "content" }}
+<div class="bg-white shadow rounded-lg p-6">
+    <div class="flex justify-between items-center mb-6">
+        <h2 class="text-3xl font-bold text-gray-900">Projects</h2>
+        <button
+            class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+            _="on click toggle .hidden on #create-modal">
+            New Project
+        </button>
+    </div>
+
+    <!-- Search and Sort -->
+    <div class="mb-4 flex gap-4">
+        <div class="flex-1">
+            <input
+                type="text"
+                id="q"
+                name="q"
+                placeholder="Search projects..."
+                value="{{ .Query }}"
+                class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                hx-get="/projects"
+                hx-trigger="keyup changed delay:300ms"
+                hx-target="#projects-tbody"
+                hx-swap="morph"
+                hx-push-url="true">
+        </div>
+        <div>
+            <select
+                id="sort"
+                name="sort"
+                class="px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                hx-get="/projects"
+                hx-target="#projects-tbody"
+                hx-swap="morph"
+                hx-push-url="true"
+                hx-include="#q">
+                <option value="">Sort by...</option>
+                <option value="name.asc" {{ if eq .Sort "name.asc" }}selected{{ end }}>Name (A-Z)</option>
+                <option value="name.desc" {{ if eq .Sort "name.desc" }}selected{{ end }}>Name (Z-A)</option>
+                <option value="created_at.asc" {{ if eq .Sort "created_at.asc" }}selected{{ end }}>Oldest First</option>
+                <option value="created_at.desc" {{ if eq .Sort "created_at.desc" }}selected{{ end }}>Newest First</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- Projects Table -->
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
+                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                </tr>
+            </thead>
+            <tbody id="projects-tbody" class="bg-white divide-y divide-gray-200">
+                {{ range .Projects }}
+                {{ template "projects/_row.html" . }}
+                {{ end }}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Pagination -->
+    {{ if gt .TotalPages 1 }}
+    <div class="mt-4 flex justify-between items-center">
+        <div class="text-sm text-gray-700">
+            Page {{ .CurrentPage }} of {{ .TotalPages }} ({{ .Total }} total)
+        </div>
+        <div class="flex gap-2">
+            {{ if gt .CurrentPage 1 }}
+            <button
+                class="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded"
+                hx-get="/projects?page={{ sub .CurrentPage 1 }}"
+                hx-target="#projects-tbody"
+                hx-swap="morph"
+                hx-push-url="true"
+                hx-include="#q, #sort">
+                Previous
+            </button>
+            {{ end }}
+            {{ if lt .CurrentPage .TotalPages }}
+            <button
+                class="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded"
+                hx-get="/projects?page={{ add .CurrentPage 1 }}"
+                hx-target="#projects-tbody"
+                hx-swap="morph"
+                hx-push-url="true"
+                hx-include="#q, #sort">
+                Next
+            </button>
+            {{ end }}
+        </div>
+    </div>
+    {{ end }}
+</div>
+
+<!-- Edit Modal (shared across all rows) -->
+<div id="edit-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+    <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-bold">Edit Project</h3>
+            <button
+                class="text-gray-400 hover:text-gray-500"
+                _="on click toggle .hidden on #edit-modal">
+                <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+        <div id="edit-modal-content">
+            <!-- Form will be loaded here via HTMX -->
+        </div>
+    </div>
+</div>
+
+<!-- Create Modal -->
+<div id="create-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+    <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-bold">New Project</h3>
+            <button
+                class="text-gray-400 hover:text-gray-500"
+                _="on click toggle .hidden on #create-modal">
+                <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+        <form
+            hx-post="/projects"
+            hx-target="#projects-tbody"
+            hx-swap="beforeend morph"
+            _="on htmx:afterRequest if event.detail.successful toggle .hidden on #create-modal then reset() me">
+            <div class="mb-4">
+                <label class="block text-gray-700 text-sm font-bold mb-2" for="name">
+                    Name
+                </label>
+                <input
+                    type="text"
+                    id="name"
+                    name="name"
+                    required
+                    class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+            </div>
+            <div class="mb-4">
+                <label class="block text-gray-700 text-sm font-bold mb-2" for="description">
+                    Description
+                </label>
+                <textarea
+                    id="description"
+                    name="description"
+                    rows="3"
+                    class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"></textarea>
+            </div>
+            <div class="flex justify-end gap-2">
+                <button
+                    type="button"
+                    class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded"
+                    _="on click toggle .hidden on #create-modal">
+                    Cancel
+                </button>
+                <button
+                    type="submit"
+                    class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+                    Create
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{{ end }}

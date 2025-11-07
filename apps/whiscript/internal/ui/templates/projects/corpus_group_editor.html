@@ -1,0 +1,315 @@
+{{ define "projects/corpus_group_editor.html" }}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ .Group.Name }} - Corpus Group Editor</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .segment-text {
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .segment-text:hover {
+            background-color: #e5e7eb;
+        }
+        .segment-text.active {
+            background-color: #fef3c7;
+            font-weight: 600;
+        }
+        .word-text {
+            cursor: pointer;
+            padding: 0 2px;
+            border-radius: 2px;
+            transition: background-color 0.2s;
+        }
+        .word-text:hover {
+            background-color: #e5e7eb;
+        }
+        .word-text.active {
+            background-color: #fde047;
+            font-weight: 600;
+        }
+        .gap-indicator {
+            display: inline-block;
+            margin: 0 8px;
+            padding: 2px 8px;
+            background-color: #fee2e2;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            color: #991b1b;
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <nav class="bg-white shadow-lg">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <h1 class="text-2xl font-bold text-gray-900">Whiscript</h1>
+                </div>
+                <div class="flex items-center">
+                    <a href="/projects" class="text-gray-700 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium">Projects</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div class="mb-6">
+            <a href="/projects/{{ .Project.ID }}" class="text-blue-600 hover:text-blue-800">← Back to Project</a>
+        </div>
+
+        <div class="bg-white shadow rounded-lg p-6 mb-6">
+            <h2 class="text-3xl font-bold text-gray-900 mb-2">{{ .Group.Name }}</h2>
+            <p class="text-sm text-gray-500">Project: {{ .Project.Name }}</p>
+            <p class="text-sm text-gray-500">Created: {{ .Group.CreatedAt.Format "2006-01-02 15:04" }}</p>
+        </div>
+
+        <!-- Audio Players Section -->
+        <div class="bg-white shadow rounded-lg p-6 mb-6">
+            <h3 class="text-xl font-bold text-gray-900 mb-4">Audio Players</h3>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                {{ range .GroupFiles }}
+                <div class="border rounded-lg p-4">
+                    <h4 class="font-bold mb-2">{{ if .SpeakerLabel }}{{ .SpeakerLabel }}{{ else }}Unknown Speaker{{ end }}</h4>
+                    <p class="text-sm text-gray-600 mb-2">{{ .Name }}</p>
+                    {{ if .AudioFileID }}
+                    <audio
+                        id="audio-player-{{ .ID }}"
+                        class="w-full audio-player"
+                        data-audio-file-id="{{ .AudioFileID }}"
+                        controls
+                        preload="metadata"
+                        src="/uploads/{{ .AudioFileID }}">
+                        Your browser does not support the audio element.
+                    </audio>
+                    {{ else }}
+                    <p class="text-sm text-red-500">No audio file associated</p>
+                    {{ end }}
+                </div>
+                {{ end }}
+            </div>
+
+            <!-- Synchronized Playback Controls -->
+            <div class="flex items-center gap-4 p-4 bg-gray-50 rounded">
+                <button id="sync-play-btn" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-6 rounded">
+                    Play All
+                </button>
+                <button id="sync-pause-btn" class="bg-yellow-500 hover:bg-yellow-700 text-white font-bold py-2 px-6 rounded">
+                    Pause All
+                </button>
+                <button id="sync-stop-btn" class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded">
+                    Stop All
+                </button>
+                <label class="flex items-center gap-2 ml-auto">
+                    <input type="checkbox" id="sync-checkbox" checked class="w-4 h-4">
+                    <span class="text-sm">Keep players synchronized</span>
+                </label>
+            </div>
+        </div>
+
+        <!-- Transcript Section -->
+        <div class="bg-white shadow rounded-lg p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold text-gray-900">Merged Transcript (Time-Series)</h3>
+                <div class="flex items-center gap-2">
+                    <label class="text-sm text-gray-700">Gap Threshold:</label>
+                    <select id="gap-threshold-select" class="border rounded px-2 py-1 text-sm" onchange="updateGapThreshold(this.value)">
+                        <option value="1.0">1.0s</option>
+                        <option value="2.0" selected>2.0s</option>
+                        <option value="3.0">3.0s</option>
+                        <option value="5.0">5.0s</option>
+                    </select>
+                </div>
+            </div>
+
+            <div id="transcript-container" class="space-y-2">
+                {{ if .SegmentsWithGaps }}
+                {{ range $index, $segWithGap := .SegmentsWithGaps }}
+                <div class="transcript-item p-3 rounded hover:bg-gray-50">
+                    <div class="flex items-start gap-3">
+                        <div class="flex-shrink-0 w-32">
+                            <span class="text-xs font-semibold text-gray-600">
+                                {{ printf "%.2f" $segWithGap.Segment.StartTime }}s - {{ printf "%.2f" $segWithGap.Segment.EndTime }}s
+                            </span>
+                            {{ if $segWithGap.SpeakerLabel }}
+                            <div class="text-xs text-purple-600 font-medium mt-1">
+                                {{ $segWithGap.SpeakerLabel }}
+                            </div>
+                            {{ end }}
+                        </div>
+                        <div class="flex-1">
+                            {{ if $segWithGap.Segment.WordsJSON }}
+                            <span class="segment-container"
+                                  data-segment-id="{{ $segWithGap.Segment.ID }}"
+                                  data-corpus-file-id="{{ $segWithGap.Segment.CorpusFileID }}"
+                                  data-audio-file-id="{{ if $segWithGap.AudioFileID }}{{ $segWithGap.AudioFileID }}{{ end }}"
+                                  data-words="{{ $segWithGap.Segment.WordsJSON }}">
+                            </span>
+                            {{ else }}
+                            <span class="segment-text"
+                                  data-segment-id="{{ $segWithGap.Segment.ID }}"
+                                  data-corpus-file-id="{{ $segWithGap.Segment.CorpusFileID }}"
+                                  data-audio-file-id="{{ if $segWithGap.AudioFileID }}{{ $segWithGap.AudioFileID }}{{ end }}"
+                                  data-start-time="{{ $segWithGap.Segment.StartTime }}"
+                                  data-end-time="{{ $segWithGap.Segment.EndTime }}">
+                                {{ $segWithGap.Segment.Text }}
+                            </span>
+                            {{ end }}
+                            {{ if $segWithGap.GapAfter }}
+                            <span class="gap-indicator">⏸ {{ printf "%.1f" (deref $segWithGap.GapAfter) }}s gap</span>
+                            {{ end }}
+                        </div>
+                    </div>
+                </div>
+                {{ end }}
+                {{ else }}
+                <div class="text-center py-12 text-gray-500">
+                    <p class="text-lg">No segments found</p>
+                </div>
+                {{ end }}
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // Parse and render word-level segments
+        document.querySelectorAll('.segment-container').forEach(container => {
+            const wordsJSON = container.dataset.words;
+            if (!wordsJSON) return;
+
+            try {
+                const words = JSON.parse(wordsJSON);
+                const audioFileId = container.dataset.audioFileId;
+
+                words.forEach(word => {
+                    const span = document.createElement('span');
+                    span.className = 'word-text';
+                    span.dataset.startTime = word.start;
+                    span.dataset.endTime = word.end;
+                    span.dataset.audioFileId = audioFileId;
+                    span.textContent = word.word;
+                    container.appendChild(span);
+                });
+            } catch (e) {
+                console.error('Failed to parse words JSON:', e);
+                container.textContent = container.closest('.transcript-item').querySelector('.segment-text')?.textContent || '';
+            }
+        });
+
+        // Get all audio players
+        const audioPlayers = document.querySelectorAll('.audio-player');
+        const syncCheckbox = document.getElementById('sync-checkbox');
+
+        // Create a mapping from audio_file_id to audio player
+        const audioFileIdToPlayer = new Map();
+        {{ range .GroupFiles }}
+        {{ if .AudioFileID }}
+        audioFileIdToPlayer.set({{ .AudioFileID }}, document.getElementById('audio-player-{{ .ID }}'));
+        {{ end }}
+        {{ end }}
+
+        // Click handlers for segments and words
+        const clickableElements = document.querySelectorAll('.segment-text, .word-text');
+        clickableElements.forEach(element => {
+            element.addEventListener('click', () => {
+                const startTime = parseFloat(element.dataset.startTime);
+                const audioFileId = parseInt(element.dataset.audioFileId);
+                const audioPlayer = audioFileIdToPlayer.get(audioFileId);
+
+                if (audioPlayer) {
+                    audioPlayer.currentTime = startTime;
+                    audioPlayer.play();
+                }
+            });
+        });
+
+        // Synchronized playback controls
+        document.getElementById('sync-play-btn').addEventListener('click', () => {
+            audioPlayers.forEach(player => player.play());
+        });
+
+        document.getElementById('sync-pause-btn').addEventListener('click', () => {
+            audioPlayers.forEach(player => player.pause());
+        });
+
+        document.getElementById('sync-stop-btn').addEventListener('click', () => {
+            audioPlayers.forEach(player => {
+                player.pause();
+                player.currentTime = 0;
+            });
+        });
+
+        // Sync players when one is played (if sync is enabled)
+        audioPlayers.forEach(player => {
+            player.addEventListener('play', (e) => {
+                if (syncCheckbox.checked) {
+                    const currentTime = e.target.currentTime;
+                    audioPlayers.forEach(p => {
+                        if (p !== e.target) {
+                            p.currentTime = currentTime;
+                            p.play().catch(() => {}); // Catch if already playing
+                        }
+                    });
+                }
+            });
+
+            player.addEventListener('pause', (e) => {
+                if (syncCheckbox.checked) {
+                    audioPlayers.forEach(p => {
+                        if (p !== e.target) {
+                            p.pause();
+                        }
+                    });
+                }
+            });
+
+            player.addEventListener('seeking', (e) => {
+                if (syncCheckbox.checked) {
+                    const currentTime = e.target.currentTime;
+                    audioPlayers.forEach(p => {
+                        if (p !== e.target) {
+                            p.currentTime = currentTime;
+                        }
+                    });
+                }
+            });
+        });
+
+        // Highlight active segments/words during playback
+        audioPlayers.forEach(player => {
+            const audioFileId = parseInt(player.dataset.audioFileId);
+
+            player.addEventListener('timeupdate', () => {
+                const currentTime = player.currentTime;
+
+                // Update highlights for this player's segments
+                clickableElements.forEach(element => {
+                    const elementAudioFileId = parseInt(element.dataset.audioFileId);
+                    if (elementAudioFileId === audioFileId) {
+                        const startTime = parseFloat(element.dataset.startTime);
+                        const endTime = parseFloat(element.dataset.endTime);
+
+                        if (currentTime >= startTime && currentTime <= endTime) {
+                            element.classList.add('active');
+                        } else {
+                            element.classList.remove('active');
+                        }
+                    }
+                });
+            });
+        });
+
+        // Update gap threshold
+        function updateGapThreshold(value) {
+            const url = new URL(window.location.href);
+            url.searchParams.set('gap_threshold', value);
+            window.location.href = url.toString();
+        }
+    </script>
+</body>
+</html>
+{{ end }}

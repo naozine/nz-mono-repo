@@ -1,0 +1,43 @@
+{{ define "projects/_form.html" }}
+<form
+    hx-post="/projects/{{ .Project.ID }}"
+    hx-target="#row-{{ .Project.ID }}"
+    hx-swap="morph"
+    _="on htmx:afterRequest if event.detail.successful toggle .hidden on #edit-modal">
+    <div class="mb-4">
+        <label class="block text-gray-700 text-sm font-bold mb-2" for="name">
+            Name
+        </label>
+        <input
+            type="text"
+            id="name"
+            name="name"
+            value="{{ .Project.Name }}"
+            required
+            class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+    </div>
+    <div class="mb-4">
+        <label class="block text-gray-700 text-sm font-bold mb-2" for="description">
+            Description
+        </label>
+        <textarea
+            id="description"
+            name="description"
+            rows="3"
+            class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">{{ .Project.Description }}</textarea>
+    </div>
+    <div class="flex justify-end gap-2">
+        <button
+            type="button"
+            class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded"
+            _="on click toggle .hidden on #edit-modal">
+            Cancel
+        </button>
+        <button
+            type="submit"
+            class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+            Update
+        </button>
+    </div>
+</form>
+{{ end }}

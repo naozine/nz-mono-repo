@@ -2,9 +2,10 @@ package service
 
 import (
 	"fmt"
+	"strings"
 
-	"github.com/hnao/nz-mono-repo/apps/whiscript/internal/model"
-	"github.com/hnao/nz-mono-repo/apps/whiscript/internal/repository"
+	"github.com/yourusername/whiscript/internal/model"
+	"github.com/yourusername/whiscript/internal/repository"
 )
 
 // ProjectService handles business logic for projects
@@ -17,49 +18,66 @@ func NewProjectService(repo *repository.ProjectRepository) *ProjectService {
 	return &ProjectService{repo: repo}
 }
 
-// ListProjects retrieves all projects
-func (s *ProjectService) ListProjects() ([]*model.Project, error) {
-	return s.repo.FindAll()
+// List retrieves projects with pagination, search, and sorting
+func (s *ProjectService) List(page, limit int, query, sort string) ([]*model.Project, int, error) {
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 100 {
+		limit = 20
+	}
+
+	return s.repo.List(page, limit, query, sort)
 }
 
-// GetProject retrieves a project by ID
-func (s *ProjectService) GetProject(id int64) (*model.Project, error) {
-	project, err := s.repo.FindByID(id)
-	if err != nil {
-		return nil, err
+// GetByID retrieves a project by ID
+func (s *ProjectService) GetByID(id int64) (*model.Project, error) {
+	if id < 1 {
+		return nil, fmt.Errorf("invalid project id")
 	}
-	if project == nil {
-		return nil, fmt.Errorf("project not found")
-	}
-	return project, nil
+	return s.repo.GetByID(id)
 }
 
-// CreateProject creates a new project
-func (s *ProjectService) CreateProject(req *model.CreateProjectRequest) (*model.Project, error) {
-	if err := req.Validate(); err != nil {
+// Create creates a new project with validation
+func (s *ProjectService) Create(input *model.ProjectCreateInput) (*model.Project, error) {
+	if err := s.validateProjectInput(input.Name, input.Description); err != nil {
 		return nil, err
 	}
-
-	return s.repo.Create(req)
+	return s.repo.Create(input)
 }
 
-// UpdateProject updates an existing project
-func (s *ProjectService) UpdateProject(id int64, req *model.UpdateProjectRequest) (*model.Project, error) {
-	if err := req.Validate(); err != nil {
+// Update updates an existing project with validation
+func (s *ProjectService) Update(id int64, input *model.ProjectUpdateInput) (*model.Project, error) {
+	if id < 1 {
+		return nil, fmt.Errorf("invalid project id")
+	}
+
+	if err := s.validateProjectInput(input.Name, input.Description); err != nil {
 		return nil, err
 	}
 
-	project, err := s.repo.Update(id, req)
-	if err != nil {
-		return nil, err
-	}
-	if project == nil {
-		return nil, fmt.Errorf("project not found")
-	}
-	return project, nil
+	return s.repo.Update(id, input)
 }
 
-// DeleteProject deletes a project by ID
-func (s *ProjectService) DeleteProject(id int64) error {
+// Delete deletes a project by ID
+func (s *ProjectService) Delete(id int64) error {
+	if id < 1 {
+		return fmt.Errorf("invalid project id")
+	}
 	return s.repo.Delete(id)
+}
+
+// validateProjectInput validates project input fields
+func (s *ProjectService) validateProjectInput(name, description string) error {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return fmt.Errorf("project name is required")
+	}
+	if len(name) > 255 {
+		return fmt.Errorf("project name must be less than 255 characters")
+	}
+	if len(description) > 1000 {
+		return fmt.Errorf("project description must be less than 1000 characters")
+	}
+	return nil
 }

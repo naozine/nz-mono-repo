@@ -1,0 +1,197 @@
+{{ define "projects/corpus_editor.html" }}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ .CorpusFile.Name }} - Editor - Whiscript</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .segment-text, .word-text {
+            cursor: pointer;
+            display: inline;
+            padding: 2px 4px;
+            border-radius: 3px;
+            transition: background-color 0.2s;
+        }
+        .segment-text:hover, .word-text:hover {
+            background-color: #dbeafe;
+        }
+        .segment-text.active, .word-text.active {
+            background-color: #fef08a;
+            font-weight: 600;
+        }
+        .segment-container {
+            display: inline;
+        }
+        .gap-indicator {
+            display: inline;
+            color: #9ca3af;
+            font-size: 0.875rem;
+            padding: 0 8px;
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <nav class="bg-white shadow-lg">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <h1 class="text-2xl font-bold text-gray-900">Whiscript</h1>
+                </div>
+                <div class="flex items-center">
+                    <a href="/projects" class="text-gray-700 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium">Projects</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div class="mb-6">
+            <a href="/projects/{{ .Project.ID }}" class="text-blue-600 hover:text-blue-800">← Back to Project</a>
+        </div>
+
+        <div class="bg-white shadow rounded-lg p-6 mb-6">
+            <h2 class="text-3xl font-bold text-gray-900 mb-2">{{ .CorpusFile.Name }}</h2>
+            <div class="flex gap-4 text-sm text-gray-600">
+                <span>{{ .CorpusFile.SegmentCount }} segments</span>
+                <span>Gap threshold: {{ printf "%.1f" .GapThreshold }}s</span>
+            </div>
+        </div>
+
+        <!-- Audio Player -->
+        <div class="bg-white shadow rounded-lg p-6 mb-6 sticky top-4 z-10">
+            <audio id="audio-player" controls class="w-full" preload="metadata">
+                <source src="/uploads/{{ .CorpusFile.AudioFileID }}" type="audio/mpeg">
+                Your browser does not support the audio element.
+            </audio>
+            <div class="mt-2 text-sm text-gray-600 text-center">
+                Click on any text below to jump to that position
+            </div>
+        </div>
+
+        <!-- Text Content -->
+        <div class="bg-white shadow rounded-lg p-8">
+            <div class="text-lg leading-relaxed" id="text-content">
+                {{ range .SegmentsWithGaps }}
+                    {{ if .Segment.HasWords }}
+                        <!-- Word-level display -->
+                        <span class="segment-container"
+                              data-segment-id="{{ .Segment.ID }}"
+                              data-words="{{ .Segment.WordsJSON }}"></span>
+                    {{ else }}
+                        <!-- Segment-level fallback -->
+                        <span class="segment-text"
+                              data-segment-id="{{ .Segment.ID }}"
+                              data-start-time="{{ .Segment.StartTime }}"
+                              data-end-time="{{ .Segment.EndTime }}">{{ .Segment.Text }}</span>
+                    {{ end }}
+                    {{ if .GapAfter }}<span class="gap-indicator">... ({{ printf "%.1f" (deref .GapAfter) }}s) ...</span>{{ end }}{{ if not .GapAfter }} {{ end }}
+                {{ end }}
+            </div>
+        </div>
+
+        <!-- Settings Panel -->
+        <div class="bg-white shadow rounded-lg p-6 mt-6">
+            <h3 class="text-lg font-bold text-gray-900 mb-4">Settings</h3>
+            <form method="get" class="flex items-center gap-4">
+                <label class="text-sm text-gray-700">
+                    Gap Threshold (seconds):
+                    <input
+                        type="number"
+                        name="gap_threshold"
+                        value="{{ printf "%.1f" .GapThreshold }}"
+                        step="0.1"
+                        min="0.5"
+                        max="10.0"
+                        class="ml-2 border rounded px-3 py-1 w-20">
+                </label>
+                <button type="submit" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded text-sm">
+                    Update
+                </button>
+            </form>
+        </div>
+    </main>
+
+    <script>
+        const audioPlayer = document.getElementById('audio-player');
+        const textContent = document.getElementById('text-content');
+
+        // Parse and render word-level segments
+        document.querySelectorAll('.segment-container').forEach(container => {
+            const wordsJSON = container.dataset.words;
+            if (wordsJSON) {
+                try {
+                    const words = JSON.parse(wordsJSON);
+                    words.forEach(word => {
+                        const span = document.createElement('span');
+                        span.className = 'word-text';
+                        span.dataset.startTime = word.start;
+                        span.dataset.endTime = word.end;
+                        span.textContent = word.word;
+                        container.appendChild(span);
+                    });
+                } catch (e) {
+                    console.error('Failed to parse words JSON:', e);
+                }
+            }
+        });
+
+        // Get all clickable elements (after word elements are created)
+        const clickableElements = document.querySelectorAll('.segment-text, .word-text');
+
+        // Click handler for segments and words
+        clickableElements.forEach(element => {
+            element.addEventListener('click', () => {
+                const startTime = parseFloat(element.dataset.startTime);
+                audioPlayer.currentTime = startTime;
+                audioPlayer.play();
+
+                // Update active element
+                clickableElements.forEach(e => e.classList.remove('active'));
+                element.classList.add('active');
+            });
+        });
+
+        // Update active element while playing (karaoke-style highlight)
+        audioPlayer.addEventListener('timeupdate', () => {
+            const currentTime = audioPlayer.currentTime;
+
+            clickableElements.forEach(element => {
+                const startTime = parseFloat(element.dataset.startTime);
+                const endTime = parseFloat(element.dataset.endTime);
+
+                if (currentTime >= startTime && currentTime <= endTime) {
+                    element.classList.add('active');
+                } else {
+                    element.classList.remove('active');
+                }
+            });
+        });
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            // Space: play/pause
+            if (e.code === 'Space' && e.target.tagName !== 'INPUT') {
+                e.preventDefault();
+                if (audioPlayer.paused) {
+                    audioPlayer.play();
+                } else {
+                    audioPlayer.pause();
+                }
+            }
+
+            // Arrow keys: skip forward/backward
+            if (e.code === 'ArrowLeft') {
+                e.preventDefault();
+                audioPlayer.currentTime = Math.max(0, audioPlayer.currentTime - 5);
+            }
+            if (e.code === 'ArrowRight') {
+                e.preventDefault();
+                audioPlayer.currentTime = Math.min(audioPlayer.duration, audioPlayer.currentTime + 5);
+            }
+        });
+    </script>
+</body>
+</html>
+{{ end }}

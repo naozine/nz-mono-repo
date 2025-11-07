@@ -1,0 +1,14 @@
+{{ define "projects/_corpus_list.html" }}
+{{ if . }}
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+    {{ range . }}
+    {{ template "projects/_corpus_card.html" . }}
+    {{ end }}
+</div>
+{{ else }}
+<div class="text-center py-12 text-gray-500">
+    <p class="text-lg">No corpus files yet</p>
+    <p class="text-sm">Upload a WhisperX JSON file to get started</p>
+</div>
+{{ end }}
+{{ end }}

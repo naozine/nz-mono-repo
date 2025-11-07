@@ -1,2 +1,28 @@
-/bin/whiscript
-/whiscript.db
+# Binary output
+/bin/
+
+# Database
+*.db
+*.db-shm
+*.db-wal
+
+# Uploads
+/uploads/
+
+# Go
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+/datas
+/whiscript
