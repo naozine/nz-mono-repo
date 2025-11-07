@@ -1,6 +1,7 @@
-go 1.24.5
+go 1.25.3
 
 use (
+	./apps/calcanke
 	./apps/code-app
 	./apps/whiscript
 )
