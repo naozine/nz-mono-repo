@@ -23,6 +23,7 @@ func main() {
 	// サブコマンドを登録
 	rootCmd.AddCommand(commands.NewImportCmd())
 	rootCmd.AddCommand(commands.NewColumnsCmd())
+	rootCmd.AddCommand(commands.NewAnalyzeCmd())
 
 	// 実行
 	if err := rootCmd.Execute(); err != nil {
