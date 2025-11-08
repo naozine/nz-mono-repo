@@ -1,0 +1,86 @@
+{{define "simpletab_result.html"}}
+<div class="space-y-4">
+    <!-- ヘッダー情報 -->
+    <div class="border-b border-gray-200 pb-4">
+        <h3 class="text-lg font-semibold text-gray-900">単純集計結果</h3>
+        <div class="mt-2 text-sm text-gray-600 space-y-1">
+            <div>
+                <span class="font-medium">集計列:</span> {{.Result.Column}}
+            </div>
+            {{if .Filter}}
+            <div>
+                <span class="font-medium">フィルタ:</span> {{.Filter.Name}} ({{.Filter.Description}})
+            </div>
+            {{end}}
+            <div>
+                <span class="font-medium">総件数:</span> {{.Result.Total}}件
+            </div>
+        </div>
+    </div>
+
+    <!-- 集計結果テーブル -->
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        値
+                    </th>
+                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        件数
+                    </th>
+                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        割合
+                    </th>
+                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        グラフ
+                    </th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                {{range .Result.Rows}}
+                <tr class="hover:bg-gray-50">
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        {{.Value}}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
+                        {{.Count}}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
+                        {{printf "%.1f" .Percentage}}%
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <div class="w-full bg-gray-200 rounded-full h-2">
+                            <div class="bg-blue-600 h-2 rounded-full" style="width: {{printf "%.1f" .Percentage}}%"></div>
+                        </div>
+                    </td>
+                </tr>
+                {{end}}
+            </tbody>
+            <tfoot class="bg-gray-50">
+                <tr>
+                    <td class="px-6 py-3 text-sm font-semibold text-gray-900">
+                        合計
+                    </td>
+                    <td class="px-6 py-3 text-sm font-semibold text-gray-900 text-right">
+                        {{.Result.Total}}
+                    </td>
+                    <td class="px-6 py-3 text-sm font-semibold text-gray-900 text-right">
+                        100.0%
+                    </td>
+                    <td></td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+
+    <!-- エクスポートボタン（Phase 2で実装予定） -->
+    <div class="flex justify-end">
+        <button type="button"
+                class="bg-gray-600 hover:bg-gray-700 text-white font-medium py-2 px-4 rounded-lg transition duration-200"
+                disabled>
+            CSV エクスポート（準備中）
+        </button>
+    </div>
+</div>
+{{end}}
