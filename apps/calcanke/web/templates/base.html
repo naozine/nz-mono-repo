@@ -26,6 +26,11 @@
         .htmx-request.htmx-indicator {
             display: inline;
         }
+
+        /* モーダルが開いている時はstickyを無効化 */
+        body.modal-open .sticky {
+            position: relative !important;
+        }
     </style>
 </head>
 <body class="bg-gray-50">

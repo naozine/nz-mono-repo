@@ -60,7 +60,7 @@
             <div class="mt-3 flex space-x-2">
                 <button type="button"
                         class="flex-1 px-3 py-2 text-sm font-medium text-blue-600 bg-white hover:bg-blue-50 border border-blue-600 rounded-lg transition duration-200"
-                        _="on click remove .hidden from #column-modal">
+                        _="on click remove .hidden from #column-modal then add .modal-open to <body/>">
                     列を選択...
                 </button>
                 <button type="button" id="swap-axes-btn"
@@ -89,7 +89,7 @@
 
     <!-- モーダルダイアログ -->
     <div id="column-modal" class="hidden fixed inset-0 z-50"
-         _="on click if target == me then add .hidden to me">
+         _="on click if target == me then add .hidden to me then remove .modal-open from <body/>">
         <div class="flex items-center justify-center h-screen p-4">
             <!-- 背景オーバーレイ -->
             <div class="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75"></div>
@@ -102,7 +102,7 @@
                         <h3 class="text-lg font-medium text-gray-900">列を選択</h3>
                         <button type="button"
                                 class="text-gray-400 hover:text-gray-500"
-                                _="on click add .hidden to #column-modal">
+                                _="on click add .hidden to #column-modal then remove .modal-open from <body/>">
                             <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                             </svg>
@@ -153,12 +153,12 @@
                 <div class="bg-gray-50 px-4 py-3 flex justify-end space-x-3 border-t border-gray-200 flex-shrink-0">
                     <button type="button"
                             class="px-4 py-2 text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 border border-gray-300 rounded-lg"
-                            _="on click add .hidden to #column-modal">
+                            _="on click add .hidden to #column-modal then remove .modal-open from <body/>">
                         キャンセル
                     </button>
                     <button type="button"
                             class="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg"
-                            _="on click add .hidden to #column-modal">
+                            _="on click add .hidden to #column-modal then remove .modal-open from <body/>">
                         確定
                     </button>
                 </div>
