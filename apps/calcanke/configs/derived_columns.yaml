@@ -86,3 +86,18 @@ derived_columns:
     parameters:
       target_year: 2025          # 対象年度
       birthdate_column: "生年月日"  # 生年月日列名
+
+  # 学校種別の計算
+  - name: "学校種別"
+    description: "生年月日から算出した学校種別（小学生・中学生・その他、2025年度基準）"
+    calculation_type: "school_type_from_birthdate"  # 学校種別計算専用
+    source_columns:
+      - "生年月日"
+
+    parameters:
+      target_year: 2025          # 対象年度
+      birthdate_column: "生年月日"  # 生年月日列名
+      labels:
+        elementary: "小学生"      # 小学生のラベル（省略可、デフォルト: "小学生"）
+        junior_high: "中学生"     # 中学生のラベル（省略可、デフォルト: "中学生"）
+        other: "その他"           # その他のラベル（省略可、デフォルト: "その他"）

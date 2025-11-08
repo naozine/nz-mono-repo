@@ -59,6 +59,8 @@ func (dc *DerivedColumn) GenerateCaseExpression() string {
 	switch dc.CalculationType {
 	case "grade_from_birthdate":
 		return dc.generateGradeCalculation()
+	case "school_type_from_birthdate":
+		return dc.generateSchoolTypeCalculation()
 	case "rules", "":
 		// デフォルトはルールベース
 		return dc.generateRuleBasedExpression()
@@ -126,6 +128,25 @@ func generateConditionSQL(cond Condition) string {
 
 	case "contains":
 		return fmt.Sprintf(`TRIM("%s") LIKE '%%%s%%'`, cond.Column, cond.Value)
+
+	case "between":
+		// Values[0]: 開始値, Values[1]: 終了値
+		if len(cond.Values) >= 2 {
+			return fmt.Sprintf(`"%s" >= '%s' AND "%s" <= '%s'`,
+				cond.Column, cond.Values[0], cond.Column, cond.Values[1])
+		}
+		return ""
+
+	case "in":
+		// 複数値のいずれかに一致（OR条件）
+		if len(cond.Values) > 0 {
+			quotedValues := make([]string, len(cond.Values))
+			for i, val := range cond.Values {
+				quotedValues[i] = fmt.Sprintf("'%s'", val)
+			}
+			return fmt.Sprintf(`"%s" IN (%s)`, cond.Column, strings.Join(quotedValues, ", "))
+		}
+		return ""
 
 	default:
 		return ""
@@ -217,6 +238,81 @@ func (dc *DerivedColumn) generateGradeCalculation() string {
 
 	// CASE式を組み立て
 	caseExpr := "CASE\n  " + strings.Join(cases, "\n  ") + "\n  ELSE 'データ不正'\nEND"
+	return caseExpr
+}
+
+// generateSchoolTypeCalculation は生年月日から学校種別を計算するSQL式を生成
+func (dc *DerivedColumn) generateSchoolTypeCalculation() string {
+	// パラメータから対象年度を取得（デフォルトは2025）
+	targetYear := 2025
+	if year, ok := dc.Parameters["target_year"]; ok {
+		if y, ok := year.(int); ok {
+			targetYear = y
+		}
+	}
+
+	// 生年月日列名を取得
+	birthdateColumn := "生年月日"
+	if col, ok := dc.Parameters["birthdate_column"]; ok {
+		if c, ok := col.(string); ok {
+			birthdateColumn = c
+		}
+	}
+
+	// カスタムラベルを取得（オプション）
+	elementaryLabel := "小学生"
+	juniorHighLabel := "中学生"
+	otherLabel := "その他"
+
+	if labels, ok := dc.Parameters["labels"]; ok {
+		if labelMap, ok := labels.(map[string]interface{}); ok {
+			if el, ok := labelMap["elementary"].(string); ok {
+				elementaryLabel = el
+			}
+			if jh, ok := labelMap["junior_high"].(string); ok {
+				juniorHighLabel = jh
+			}
+			if ot, ok := labelMap["other"].(string); ok {
+				otherLabel = ot
+			}
+		}
+	}
+
+	// 小学校の範囲を計算（小1〜小6）
+	// 小1は7歳になる年度、小6は12歳になる年度
+	// 小1: targetYear - 1 - 6 = targetYear - 7 歳の生年月日
+	// 小6: targetYear - 6 - 6 = targetYear - 12 歳の生年月日
+	elemStart := fmt.Sprintf("%04d0402", targetYear-12) // 小6の開始日（最も古い）
+	elemEnd := fmt.Sprintf("%04d0401", targetYear-6)    // 小1の終了日（最も新しい）
+
+	// 中学校の範囲を計算（中1〜中3）
+	// 中1は13歳になる年度、中3は15歳になる年度
+	juniorStart := fmt.Sprintf("%04d0402", targetYear-15) // 中3の開始日（最も古い）
+	juniorEnd := fmt.Sprintf("%04d0401", targetYear-12)   // 中1の終了日（最も新しい）
+
+	// CASE式を構築
+	var cases []string
+
+	// 小学生
+	cases = append(cases, fmt.Sprintf(
+		"WHEN \"%s\" >= '%s' AND \"%s\" <= '%s' THEN '%s'",
+		birthdateColumn, elemStart, birthdateColumn, elemEnd, elementaryLabel,
+	))
+
+	// 中学生
+	cases = append(cases, fmt.Sprintf(
+		"WHEN \"%s\" >= '%s' AND \"%s\" <= '%s' THEN '%s'",
+		birthdateColumn, juniorStart, birthdateColumn, juniorEnd, juniorHighLabel,
+	))
+
+	// NULL対応
+	cases = append(cases, fmt.Sprintf(
+		"WHEN \"%s\" IS NULL THEN NULL",
+		birthdateColumn,
+	))
+
+	// CASE式を組み立て
+	caseExpr := fmt.Sprintf("CASE\n  %s\n  ELSE '%s'\nEND", strings.Join(cases, "\n  "), otherLabel)
 	return caseExpr
 }
 
