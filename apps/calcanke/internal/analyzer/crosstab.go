@@ -106,14 +106,33 @@ func (a *Analyzer) buildSimpleCrosstabQuery(config AnalysisConfig) string {
 
 // buildMultiAnswerCrosstabQuery は複数回答のクロス集計のSQLを生成
 func (a *Analyzer) buildMultiAnswerCrosstabQuery(config AnalysisConfig) string {
-	xExpr := fmt.Sprintf(`"%s"`, config.XColumn.Name)
-	if config.SplitX {
+	// X軸のSQL式を取得
+	var xExpr string
+	if config.SplitX && !config.XColumn.IsDerived {
 		xExpr = fmt.Sprintf(`unnest(string_split("%s", CHR(10)))`, config.XColumn.Name)
+	} else {
+		xExpr = config.XColumn.GetSQLExpression()
 	}
 
-	yExpr := fmt.Sprintf(`"%s"`, config.YColumn.Name)
-	if config.SplitY {
+	// Y軸のSQL式を取得
+	var yExpr string
+	if config.SplitY && !config.YColumn.IsDerived {
 		yExpr = fmt.Sprintf(`unnest(string_split("%s", CHR(10)))`, config.YColumn.Name)
+	} else {
+		yExpr = config.YColumn.GetSQLExpression()
+	}
+
+	// WHERE句の構築（派生列の場合は不要）
+	var whereClauses []string
+	if !config.XColumn.IsDerived {
+		whereClauses = append(whereClauses, fmt.Sprintf(`"%s" IS NOT NULL`, config.XColumn.Name))
+	}
+	if !config.YColumn.IsDerived {
+		whereClauses = append(whereClauses, fmt.Sprintf(`"%s" IS NOT NULL`, config.YColumn.Name))
+	}
+	whereClause := ""
+	if len(whereClauses) > 0 {
+		whereClause = "WHERE " + strings.Join(whereClauses, " AND ")
 	}
 
 	return fmt.Sprintf(`
@@ -122,7 +141,7 @@ func (a *Analyzer) buildMultiAnswerCrosstabQuery(config AnalysisConfig) string {
 				%s as x_value,
 				%s as y_value
 			FROM %s
-			WHERE "%s" IS NOT NULL AND "%s" IS NOT NULL
+			%s
 		)
 		SELECT
 			x_value,
@@ -136,7 +155,6 @@ func (a *Analyzer) buildMultiAnswerCrosstabQuery(config AnalysisConfig) string {
 		xExpr,
 		yExpr,
 		a.Table,
-		config.XColumn.Name,
-		config.YColumn.Name,
+		whereClause,
 	)
 }

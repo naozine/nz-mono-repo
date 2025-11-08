@@ -83,13 +83,20 @@ func (a *Analyzer) buildSimpleSimpletabQuery(column *Column) string {
 }
 
 // buildMultiAnswerSimpletabQuery は複数回答の単純集計のSQLを生成
+// 注意: 派生列の場合は呼ばれない（Simpletab関数でチェック済み）
 func (a *Analyzer) buildMultiAnswerSimpletabQuery(column *Column) string {
+	// 派生列でないことを前提とする
+	whereClause := ""
+	if !column.IsDerived {
+		whereClause = fmt.Sprintf(`WHERE "%s" IS NOT NULL`, column.Name)
+	}
+
 	return fmt.Sprintf(`
 		WITH split_data AS (
 			SELECT
 				unnest(string_split("%s", CHR(10))) as value
 			FROM %s
-			WHERE "%s" IS NOT NULL
+			%s
 		)
 		SELECT
 			value,
@@ -101,6 +108,6 @@ func (a *Analyzer) buildMultiAnswerSimpletabQuery(column *Column) string {
 	`,
 		column.Name,
 		a.Table,
-		column.Name,
+		whereClause,
 	)
 }
