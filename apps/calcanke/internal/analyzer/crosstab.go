@@ -7,6 +7,11 @@ import (
 
 // Crosstab はクロス集計を実行
 func (a *Analyzer) Crosstab(config AnalysisConfig) (*CrosstabResult, error) {
+	return a.CrosstabWithFilter(config, nil)
+}
+
+// CrosstabWithFilter はフィルタを適用してクロス集計を実行
+func (a *Analyzer) CrosstabWithFilter(config AnalysisConfig, filter *Filter) (*CrosstabResult, error) {
 	// 派生列の場合は複数回答の分割に対応しない
 	if config.XColumn.IsDerived {
 		config.SplitX = false
@@ -20,10 +25,10 @@ func (a *Analyzer) Crosstab(config AnalysisConfig) (*CrosstabResult, error) {
 
 	if config.SplitX || config.SplitY {
 		// 複数回答対応のクロス集計
-		query = a.buildMultiAnswerCrosstabQuery(config)
+		query = a.buildMultiAnswerCrosstabQuery(config, filter)
 	} else {
 		// シンプルなクロス集計
-		query = a.buildSimpleCrosstabQuery(config)
+		query = a.buildSimpleCrosstabQuery(config, filter)
 	}
 
 	// クエリ実行
@@ -65,7 +70,7 @@ func (a *Analyzer) Crosstab(config AnalysisConfig) (*CrosstabResult, error) {
 }
 
 // buildSimpleCrosstabQuery はシンプルなクロス集計のSQLを生成
-func (a *Analyzer) buildSimpleCrosstabQuery(config AnalysisConfig) string {
+func (a *Analyzer) buildSimpleCrosstabQuery(config AnalysisConfig, filter *Filter) string {
 	xExpr := config.XColumn.GetSQLExpression()
 	yExpr := config.YColumn.GetSQLExpression()
 
@@ -77,6 +82,15 @@ func (a *Analyzer) buildSimpleCrosstabQuery(config AnalysisConfig) string {
 	if !config.YColumn.IsDerived {
 		whereClauses = append(whereClauses, fmt.Sprintf(`"%s" IS NOT NULL`, config.YColumn.Name))
 	}
+
+	// フィルタがある場合は追加
+	if filter != nil {
+		filterWhere := filter.GenerateWhereClause(a)
+		if filterWhere != "" {
+			whereClauses = append(whereClauses, filterWhere)
+		}
+	}
+
 	whereClause := ""
 	if len(whereClauses) > 0 {
 		whereClause = "WHERE " + strings.Join(whereClauses, " AND ")
@@ -105,7 +119,7 @@ func (a *Analyzer) buildSimpleCrosstabQuery(config AnalysisConfig) string {
 }
 
 // buildMultiAnswerCrosstabQuery は複数回答のクロス集計のSQLを生成
-func (a *Analyzer) buildMultiAnswerCrosstabQuery(config AnalysisConfig) string {
+func (a *Analyzer) buildMultiAnswerCrosstabQuery(config AnalysisConfig, filter *Filter) string {
 	// X軸のSQL式を取得
 	var xExpr string
 	if config.SplitX && !config.XColumn.IsDerived {
@@ -130,6 +144,15 @@ func (a *Analyzer) buildMultiAnswerCrosstabQuery(config AnalysisConfig) string {
 	if !config.YColumn.IsDerived {
 		whereClauses = append(whereClauses, fmt.Sprintf(`"%s" IS NOT NULL`, config.YColumn.Name))
 	}
+
+	// フィルタがある場合は追加
+	if filter != nil {
+		filterWhere := filter.GenerateWhereClause(a)
+		if filterWhere != "" {
+			whereClauses = append(whereClauses, filterWhere)
+		}
+	}
+
 	whereClause := ""
 	if len(whereClauses) > 0 {
 		whereClause = "WHERE " + strings.Join(whereClauses, " AND ")

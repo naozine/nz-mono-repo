@@ -53,6 +53,9 @@ type AnalysisConfig struct {
 	SplitX bool // X軸を分割（複数回答）
 	SplitY bool // Y軸を分割
 
+	// フィルタ
+	Filter *Filter // 適用するフィルタ（nilの場合はフィルタなし）
+
 	// 出力
 	OutputPath string // CSVエクスポート先（空なら画面表示のみ）
 }

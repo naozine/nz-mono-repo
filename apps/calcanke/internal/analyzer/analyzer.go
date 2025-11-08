@@ -14,6 +14,7 @@ type Analyzer struct {
 	Table          string
 	DerivedColumns []DerivedColumn
 	derivedColsMap map[string]*DerivedColumn // 名前から派生列を引くマップ
+	Filters        []Filter                  // 利用可能なフィルタ
 }
 
 // NewAnalyzer はAnalyzerを作成
@@ -55,12 +56,20 @@ func NewAnalyzer(dbPath, table string) (*Analyzer, error) {
 		derivedColsMap[derivedCols[i].Name] = &derivedCols[i]
 	}
 
+	// フィルタの設定を読み込み（オプショナル）
+	filters, err := LoadFilters("configs/filters.yaml")
+	if err != nil {
+		// 設定ファイルがなくてもエラーにしない
+		filters = []Filter{}
+	}
+
 	return &Analyzer{
 		db:             db,
 		DBPath:         dbPath,
 		Table:          table,
 		DerivedColumns: derivedCols,
 		derivedColsMap: derivedColsMap,
+		Filters:        filters,
 	}, nil
 }
 

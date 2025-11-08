@@ -139,9 +139,15 @@ func runCrosstabFlow(a *analyzer.Analyzer, columns analyzer.ColumnList) error {
 		config.SplitY = splitY
 	}
 
+	// フィルタを選択
+	selectedFilter, err := selectFilter(a)
+	if err != nil {
+		return err
+	}
+
 	// 集計実行
 	fmt.Println("\n集計中...")
-	result, err := a.Crosstab(config)
+	result, err := a.CrosstabWithFilter(config, selectedFilter)
 	if err != nil {
 		return fmt.Errorf("failed to execute crosstab: %w", err)
 	}
@@ -205,9 +211,15 @@ func runSimpletabFlow(a *analyzer.Analyzer, columns analyzer.ColumnList) error {
 		}, &split)
 	}
 
+	// フィルタを選択
+	selectedFilter, err := selectFilter(a)
+	if err != nil {
+		return err
+	}
+
 	// 集計実行
 	fmt.Println("\n集計中...")
-	result, err := a.Simpletab(column, split)
+	result, err := a.SimpletabWithFilter(column, split, selectedFilter)
 	if err != nil {
 		return fmt.Errorf("failed to execute simpletab: %w", err)
 	}
@@ -245,4 +257,55 @@ func parseSelectionIndex(selection string) int {
 		return 1
 	}
 	return index
+}
+
+// selectFilter はフィルタを選択するプロンプトを表示
+func selectFilter(a *analyzer.Analyzer) (*analyzer.Filter, error) {
+	if len(a.Filters) == 0 {
+		// フィルタが定義されていない場合はnilを返す
+		return nil, nil
+	}
+
+	// フィルタオプションを作成
+	options := []string{"フィルタなし（全データ）"}
+	for _, filter := range a.Filters {
+		options = append(options, filter.Name)
+	}
+
+	// フィルタを選択
+	var selection string
+	err := survey.AskOne(&survey.Select{
+		Message: "フィルタを選択してください:",
+		Options: options,
+		Description: func(value string, index int) string {
+			if index == 0 {
+				return "フィルタを適用せず、全データを集計します"
+			}
+			if index-1 < len(a.Filters) {
+				return a.Filters[index-1].Description
+			}
+			return ""
+		},
+	}, &selection)
+	if err != nil {
+		return nil, err
+	}
+
+	// 「フィルタなし」が選択された場合はnilを返す
+	if selection == "フィルタなし（全データ）" {
+		fmt.Println("\n✓ フィルタ: なし\n")
+		return nil, nil
+	}
+
+	// 選択されたフィルタを探す
+	for i := range a.Filters {
+		if a.Filters[i].Name == selection {
+			fmt.Printf("\n✓ フィルタ: %s\n", a.Filters[i].Name)
+			fmt.Printf("  条件: %s\n\n", a.Filters[i].Description)
+			return &a.Filters[i], nil
+		}
+	}
+
+	// 見つからない場合はnilを返す（通常は発生しない）
+	return nil, nil
 }

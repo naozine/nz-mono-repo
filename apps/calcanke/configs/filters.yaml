@@ -1,0 +1,47 @@
+# データフィルタの定義
+# 集計時に特定の条件でデータを除外・抽出できます
+
+filters:
+  # 小中学生のみに絞る
+  - name: "小中学生のみ"
+    description: "小1未満と高1以上を除外"
+    conditions:
+      - column: "学年"
+        exclude_values:
+          - "小1未満"
+          - "高1以上"
+
+  # 東京都のみに絞る
+  - name: "東京都のみ"
+    description: "東京都（23区＋三多摩島しょ）のみ"
+    conditions:
+      - column: "エリア分類"
+        include_values:
+          - "東京23区"
+          - "三多摩島しょ"
+
+  # 東京23区のみ
+  - name: "東京23区のみ"
+    description: "東京23区に在住する回答者のみ"
+    conditions:
+      - column: "エリア分類"
+        include_values:
+          - "東京23区"
+
+  # 首都圏のみ
+  - name: "首都圏のみ"
+    description: "東京・神奈川・埼玉・千葉のみ"
+    conditions:
+      - column: "エリア分類"
+        exclude_values:
+          - "その他"
+
+  # 中学生のみ
+  - name: "中学生のみ"
+    description: "中1〜中3のみ"
+    conditions:
+      - column: "学年"
+        include_values:
+          - "中1"
+          - "中2"
+          - "中3"
