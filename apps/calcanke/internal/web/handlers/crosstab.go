@@ -11,6 +11,7 @@ import (
 // CrosstabResultData はクロス集計結果のテンプレートデータ
 type CrosstabResultData struct {
 	Result *analyzer.CrosstabResult
+	Pivot  *analyzer.CrosstabPivot
 	Filter *analyzer.Filter
 }
 
@@ -86,8 +87,12 @@ func (h *Handler) Crosstab(c echo.Context) error {
 		return c.String(http.StatusInternalServerError, "Failed to execute crosstab: "+err.Error())
 	}
 
+	// ピボット形式のデータも生成
+	pivot := result.ToPivot()
+
 	data := CrosstabResultData{
 		Result: result,
+		Pivot:  pivot,
 		Filter: filter,
 	}
 

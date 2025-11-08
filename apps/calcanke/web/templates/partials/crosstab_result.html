@@ -21,52 +21,41 @@
         </div>
     </div>
 
-    <!-- 集計結果テーブル -->
-    <div class="overflow-x-auto">
-        <table class="min-w-full divide-y divide-gray-200">
-            <thead class="bg-gray-50">
-                <tr>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky left-0 bg-gray-50">
-                        {{.Result.XColumn}} \ {{.Result.YColumn}}
-                    </th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        値
-                    </th>
-                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        件数
-                    </th>
-                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        割合
-                    </th>
-                </tr>
-            </thead>
-            <tbody class="bg-white divide-y divide-gray-200">
-                {{$currentX := ""}}
-                {{range .Result.Rows}}
-                {{if ne .XValue $currentX}}
-                {{$currentX = .XValue}}
-                <tr class="bg-gray-50 font-semibold">
-                    <td colspan="4" class="px-6 py-3 text-sm text-gray-900">
-                        {{.XValue}}
-                    </td>
-                </tr>
-                {{end}}
-                <tr class="hover:bg-gray-50">
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 pl-12">
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {{.YValue}}
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
-                        {{.Count}}
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
-                        {{printf "%.1f" .Percentage}}%
-                    </td>
-                </tr>
-                {{end}}
-            </tbody>
-        </table>
+    <!-- 表示形式切り替え -->
+    <div class="flex items-center space-x-4">
+        <span class="text-sm font-medium text-gray-700">表示形式:</span>
+        <div class="inline-flex rounded-md shadow-sm" role="group">
+            <button type="button" id="list-view-btn"
+                    class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-l-lg hover:bg-blue-700 border border-blue-600"
+                    _="on click
+                       add .bg-blue-600 .text-white .border-blue-600 to me
+                       remove .bg-blue-600 .text-white .border-blue-600 from #pivot-view-btn
+                       add .bg-gray-200 .text-gray-700 .border-gray-300 to #pivot-view-btn
+                       remove .hidden from #list-table
+                       add .hidden to #pivot-table">
+                リスト形式
+            </button>
+            <button type="button" id="pivot-view-btn"
+                    class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-r-lg hover:bg-gray-300 border border-gray-300"
+                    _="on click
+                       add .bg-blue-600 .text-white .border-blue-600 to me
+                       remove .bg-blue-600 .text-white .border-blue-600 from #list-view-btn
+                       add .bg-gray-200 .text-gray-700 .border-gray-300 to #list-view-btn
+                       add .hidden to #list-table
+                       remove .hidden from #pivot-table">
+                クロス表形式
+            </button>
+        </div>
+    </div>
+
+    <!-- リスト形式の表 -->
+    <div id="list-table">
+        {{template "crosstab_list.html" .}}
+    </div>
+
+    <!-- クロス表形式の表 -->
+    <div id="pivot-table" class="hidden">
+        {{template "crosstab_pivot.html" .}}
     </div>
 
     <!-- エクスポートボタン（Phase 2で実装予定） -->

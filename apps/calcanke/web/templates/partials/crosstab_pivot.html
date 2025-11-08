@@ -1,0 +1,59 @@
+{{define "crosstab_pivot.html"}}
+<div class="overflow-x-auto">
+    <table class="min-w-full border border-gray-300">
+        <thead class="bg-gray-50">
+            <tr>
+                <!-- 左上の空セル -->
+                <th rowspan="2" class="px-4 py-3 border border-gray-300 bg-gray-100 sticky left-0">
+                    <div class="text-xs font-medium text-gray-500 text-center">
+                        {{.Pivot.XColumn}}<br>\<br>{{.Pivot.YColumn}}
+                    </div>
+                </th>
+
+                <!-- Y値のヘッダー（各Y値に2列: 件数と割合） -->
+                {{range .Pivot.YValues}}
+                <th colspan="2" class="px-4 py-3 border border-gray-300 text-center bg-gray-50">
+                    <div class="text-sm font-medium text-gray-900">{{.}}</div>
+                </th>
+                {{end}}
+            </tr>
+            <tr class="bg-gray-50">
+                {{range .Pivot.YValues}}
+                <th class="px-3 py-2 border border-gray-300 text-xs text-gray-500 text-right">件数</th>
+                <th class="px-3 py-2 border border-gray-300 text-xs text-gray-500 text-right">割合</th>
+                {{end}}
+            </tr>
+        </thead>
+        <tbody class="bg-white">
+            {{range $x := .Pivot.XValues}}
+            <tr class="hover:bg-gray-50">
+                <!-- X値（行ヘッダー） -->
+                <td class="px-4 py-3 border border-gray-300 font-medium text-gray-900 bg-gray-50 sticky left-0">
+                    {{$x}}
+                </td>
+
+                <!-- 各Y値のセル -->
+                {{range $y := $.Pivot.YValues}}
+                {{$cell := index (index $.Pivot.Matrix $x) $y}}
+                {{if $cell.Exists}}
+                <td class="px-3 py-3 border border-gray-300 text-right text-sm">
+                    {{$cell.Count}}
+                </td>
+                <td class="px-3 py-3 border border-gray-300 text-right text-sm">
+                    {{printf "%.1f%%" $cell.Percentage}}
+                </td>
+                {{else}}
+                <td class="px-3 py-3 border border-gray-300 text-right text-sm text-gray-400">
+                    -
+                </td>
+                <td class="px-3 py-3 border border-gray-300 text-right text-sm text-gray-400">
+                    -
+                </td>
+                {{end}}
+                {{end}}
+            </tr>
+            {{end}}
+        </tbody>
+    </table>
+</div>
+{{end}}
