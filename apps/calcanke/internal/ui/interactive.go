@@ -34,35 +34,52 @@ func RunInteractive(dbPath, table string) error {
 		return fmt.Errorf("failed to get columns: %w", err)
 	}
 
-	// 分析タイプを選択
-	var analysisType string
-	err = survey.AskOne(&survey.Select{
-		Message: "分析タイプを選択してください:",
-		Options: []string{
-			"単純集計（1列）",
-			"クロス集計（2列）",
-			"終了",
-		},
-	}, &analysisType)
-	if err != nil {
-		return err
-	}
+	// メインループ：分析タイプ選択と集計実行を繰り返す
+	for {
+		// 分析タイプを選択
+		var analysisType string
+		err = survey.AskOne(&survey.Select{
+			Message: "分析タイプを選択してください:",
+			Options: []string{
+				"単純集計（1列）",
+				"クロス集計（2列）",
+				"終了",
+			},
+		}, &analysisType)
+		if err != nil {
+			return err
+		}
 
-	if analysisType == "終了" {
-		fmt.Println("終了します")
-		return nil
-	}
+		if analysisType == "終了" {
+			fmt.Println("\n終了します")
+			return nil
+		}
 
-	// 選択された分析タイプに応じて処理を振り分け
-	if analysisType == "単純集計（1列）" {
-		return runSimpletabFlow(a, columns)
-	}
+		// 選択された分析タイプに応じて処理を振り分け
+		var continueAnalysis bool
+		if analysisType == "単純集計（1列）" {
+			continueAnalysis, err = runSimpletabFlow(a, columns)
+		} else {
+			// クロス集計フロー
+			continueAnalysis, err = runCrosstabFlow(a, columns)
+		}
 
-	// クロス集計フロー
-	return runCrosstabFlow(a, columns)
+		if err != nil {
+			return err
+		}
+
+		// ユーザーが終了を選択した場合はループを抜ける
+		if !continueAnalysis {
+			fmt.Println("\n終了します")
+			return nil
+		}
+
+		// 別の集計を実行する場合はループを継続
+		fmt.Println("")
+	}
 }
 
-func runCrosstabFlow(a *analyzer.Analyzer, columns analyzer.ColumnList) error {
+func runCrosstabFlow(a *analyzer.Analyzer, columns analyzer.ColumnList) (bool, error) {
 	// X軸の列を選択
 	var xSelection string
 	err := survey.AskOne(&survey.Select{
@@ -80,7 +97,7 @@ func runCrosstabFlow(a *analyzer.Analyzer, columns analyzer.ColumnList) error {
 		},
 	}, &xSelection)
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	xIndex := parseSelectionIndex(xSelection)
@@ -105,7 +122,7 @@ func runCrosstabFlow(a *analyzer.Analyzer, columns analyzer.ColumnList) error {
 		},
 	}, &ySelection)
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	yIndex := parseSelectionIndex(ySelection)
@@ -142,14 +159,14 @@ func runCrosstabFlow(a *analyzer.Analyzer, columns analyzer.ColumnList) error {
 	// フィルタを選択
 	selectedFilter, err := selectFilter(a)
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	// 集計実行
 	fmt.Println("\n集計中...")
 	result, err := a.CrosstabWithFilter(config, selectedFilter)
 	if err != nil {
-		return fmt.Errorf("failed to execute crosstab: %w", err)
+		return false, fmt.Errorf("failed to execute crosstab: %w", err)
 	}
 
 	// 結果表示
@@ -165,18 +182,11 @@ func runCrosstabFlow(a *analyzer.Analyzer, columns analyzer.ColumnList) error {
 		},
 	}, &nextAction)
 
-	if nextAction == "別の集計を実行" {
-		// 再度、Analyzerを使って分析
-		// 現在のAnalyzerをそのまま使えるので、列情報を再取得
-		cols, _ := a.GetColumns()
-		return runCrosstabFlow(a, cols)
-	}
-
-	fmt.Println("\n終了します")
-	return nil
+	// 「別の集計を実行」の場合はtrue、「終了」の場合はfalseを返す
+	return nextAction == "別の集計を実行", nil
 }
 
-func runSimpletabFlow(a *analyzer.Analyzer, columns analyzer.ColumnList) error {
+func runSimpletabFlow(a *analyzer.Analyzer, columns analyzer.ColumnList) (bool, error) {
 	// 列を選択
 	var selection string
 	err := survey.AskOne(&survey.Select{
@@ -194,7 +204,7 @@ func runSimpletabFlow(a *analyzer.Analyzer, columns analyzer.ColumnList) error {
 		},
 	}, &selection)
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	columnIndex := parseSelectionIndex(selection)
@@ -214,14 +224,14 @@ func runSimpletabFlow(a *analyzer.Analyzer, columns analyzer.ColumnList) error {
 	// フィルタを選択
 	selectedFilter, err := selectFilter(a)
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	// 集計実行
 	fmt.Println("\n集計中...")
 	result, err := a.SimpletabWithFilter(column, split, selectedFilter)
 	if err != nil {
-		return fmt.Errorf("failed to execute simpletab: %w", err)
+		return false, fmt.Errorf("failed to execute simpletab: %w", err)
 	}
 
 	// 結果表示
@@ -237,12 +247,8 @@ func runSimpletabFlow(a *analyzer.Analyzer, columns analyzer.ColumnList) error {
 		},
 	}, &nextAction)
 
-	if nextAction == "別の集計を実行" {
-		return RunInteractive(a.DBPath, a.Table)
-	}
-
-	fmt.Println("\n終了します")
-	return nil
+	// 「別の集計を実行」の場合はtrue、「終了」の場合はfalseを返す
+	return nextAction == "別の集計を実行", nil
 }
 
 // parseSelectionIndex は選択された文字列から列番号を抽出
