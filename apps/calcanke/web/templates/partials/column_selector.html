@@ -74,6 +74,15 @@
         </div>
     </div>
 
+    <!-- 軸入れ替えボタン -->
+    <div class="flex justify-center">
+        <button type="button" id="swap-axes-btn"
+                class="px-4 py-2 text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 border border-gray-300 rounded-lg transition duration-200"
+                onclick="swapAxes()">
+            ⇄ 軸を入れ替え
+        </button>
+    </div>
+
     <div>
         <label class="block text-sm font-medium text-gray-700 mb-2">
             Y軸（列）
@@ -102,6 +111,32 @@
     </div>
 
     <script>
+        // 軸を入れ替える関数
+        function swapAxes() {
+            const xSelect = document.getElementById('x-column-select');
+            const ySelect = document.getElementById('y-column-select');
+            const xSplitCheckbox = document.querySelector('input[name="split_x"]');
+            const ySplitCheckbox = document.querySelector('input[name="split_y"]');
+
+            // 選択値を入れ替え
+            const xValue = xSelect.value;
+            const yValue = ySelect.value;
+            xSelect.value = yValue;
+            ySelect.value = xValue;
+
+            // チェックボックスの状態を入れ替え
+            if (xSplitCheckbox && ySplitCheckbox) {
+                const xChecked = xSplitCheckbox.checked;
+                const yChecked = ySplitCheckbox.checked;
+                xSplitCheckbox.checked = yChecked;
+                ySplitCheckbox.checked = xChecked;
+            }
+
+            // changeイベントを発火して、分割オプションの表示を更新
+            xSelect.dispatchEvent(new Event('change'));
+            ySelect.dispatchEvent(new Event('change'));
+        }
+
         // X軸選択時
         document.getElementById('x-column-select').addEventListener('change', function(e) {
             const selected = e.target.options[e.target.selectedIndex];
