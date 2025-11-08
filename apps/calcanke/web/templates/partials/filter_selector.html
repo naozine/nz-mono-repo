@@ -19,7 +19,7 @@
     </div>
 
     <script>
-        // フィルタ選択時に説明を表示
+        // フィルタ選択時に説明を表示 & 自動集計
         document.getElementById('filter-select').addEventListener('change', function(e) {
             const selected = e.target.options[e.target.selectedIndex];
             const description = selected.dataset.description;
@@ -30,6 +30,11 @@
                 descElement.style.display = 'block';
             } else {
                 descElement.style.display = 'none';
+            }
+
+            // 自動集計を実行
+            if (window.triggerAnalysis) {
+                window.triggerAnalysis();
             }
         });
     </script>

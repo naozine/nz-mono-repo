@@ -28,7 +28,7 @@
     </div>
 
     <script>
-        // 列選択時に複数回答の場合は分割オプションを表示
+        // 列選択時に複数回答の場合は分割オプションを表示 & 自動集計
         document.getElementById('column-select').addEventListener('change', function(e) {
             const selected = e.target.options[e.target.selectedIndex];
             const isMulti = selected.dataset.multi === 'true';
@@ -40,6 +40,23 @@
                 splitOption.style.display = 'block';
             } else {
                 splitOption.style.display = 'none';
+            }
+
+            // 自動集計を実行
+            if (window.triggerAnalysis) {
+                window.triggerAnalysis();
+            }
+        });
+
+        // 分割チェックボックスの変更時にも自動集計
+        document.addEventListener('DOMContentLoaded', function() {
+            const splitCheckbox = document.querySelector('input[name="split"]');
+            if (splitCheckbox) {
+                splitCheckbox.addEventListener('change', function() {
+                    if (window.triggerAnalysis) {
+                        window.triggerAnalysis();
+                    }
+                });
             }
         });
     </script>
@@ -65,7 +82,7 @@
                 </button>
                 <button type="button" id="swap-axes-btn"
                         class="px-3 py-2 text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 border border-gray-300 rounded-lg transition duration-200"
-                        onclick="swapAxes()">
+                        onclick="swapAxes(); if(window.triggerAnalysis) window.triggerAnalysis();">
                     ⇄
                 </button>
             </div>
@@ -75,14 +92,14 @@
     <!-- 複数回答分割オプション -->
     <div id="split-x-option" class="hidden">
         <label class="flex items-center">
-            <input type="checkbox" name="split_x" value="true" class="mr-2">
+            <input type="checkbox" name="split_x" value="true" class="mr-2" onchange="if(window.triggerAnalysis) window.triggerAnalysis()">
             <span class="text-sm text-gray-700">X軸を複数回答として分割する</span>
         </label>
     </div>
 
     <div id="split-y-option" class="hidden">
         <label class="flex items-center">
-            <input type="checkbox" name="split_y" value="true" class="mr-2">
+            <input type="checkbox" name="split_y" value="true" class="mr-2" onchange="if(window.triggerAnalysis) window.triggerAnalysis()">
             <span class="text-sm text-gray-700">Y軸を複数回答として分割する</span>
         </label>
     </div>
@@ -158,6 +175,7 @@
                     </button>
                     <button type="button"
                             class="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg"
+                            onclick="if(window.triggerAnalysis) window.triggerAnalysis();"
                             _="on click add .hidden to #column-modal then remove .modal-open from <body/>">
                         確定
                     </button>
