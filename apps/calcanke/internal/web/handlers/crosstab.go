@@ -10,9 +10,14 @@ import (
 
 // CrosstabResultData はクロス集計結果のテンプレートデータ
 type CrosstabResultData struct {
-	Result *analyzer.CrosstabResult
-	Pivot  *analyzer.CrosstabPivot
-	Filter *analyzer.Filter
+	Result       *analyzer.CrosstabResult
+	Pivot        *analyzer.CrosstabPivot
+	Filter       *analyzer.Filter
+	XColumnIndex int
+	YColumnIndex int
+	SplitX       bool
+	SplitY       bool
+	FilterName   string
 }
 
 // Crosstab はクロス集計を実行する
@@ -91,9 +96,14 @@ func (h *Handler) Crosstab(c echo.Context) error {
 	pivot := result.ToPivot()
 
 	data := CrosstabResultData{
-		Result: result,
-		Pivot:  pivot,
-		Filter: filter,
+		Result:       result,
+		Pivot:        pivot,
+		Filter:       filter,
+		XColumnIndex: xColumnIndex,
+		YColumnIndex: yColumnIndex,
+		SplitX:       splitX,
+		SplitY:       splitY,
+		FilterName:   filterName,
 	}
 
 	return c.Render(http.StatusOK, "crosstab_result.html", data)

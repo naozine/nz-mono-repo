@@ -21,33 +21,45 @@
         </div>
     </div>
 
-    <!-- 表示形式切り替え -->
-    <div class="flex items-center space-x-4">
-        <span class="text-sm font-medium text-gray-700">表示形式:</span>
-        <div class="inline-flex rounded-md shadow-sm" role="group">
-            <button type="button" id="list-view-btn"
-                    class="px-4 py-2 text-sm font-medium text-gray-700 bg-white rounded-l-lg hover:bg-gray-50 border border-gray-300"
-                    _="on click
-                       remove .bg-white .text-gray-700 .border-gray-300 .hover:bg-gray-50 from me
-                       add .bg-blue-600 .text-white .border-blue-600 .hover:bg-blue-700 to me
-                       remove .bg-blue-600 .text-white .border-blue-600 .hover:bg-blue-700 from #pivot-view-btn
-                       add .bg-white .text-gray-700 .border-gray-300 .hover:bg-gray-50 to #pivot-view-btn
-                       remove .hidden from #list-table
-                       add .hidden to #pivot-table">
-                リスト形式
-            </button>
-            <button type="button" id="pivot-view-btn"
-                    class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-r-lg hover:bg-blue-700 border border-blue-600"
-                    _="on click
-                       remove .bg-white .text-gray-700 .border-gray-300 .hover:bg-gray-50 from me
-                       add .bg-blue-600 .text-white .border-blue-600 .hover:bg-blue-700 to me
-                       remove .bg-blue-600 .text-white .border-blue-600 .hover:bg-blue-700 from #list-view-btn
-                       add .bg-white .text-gray-700 .border-gray-300 .hover:bg-gray-50 to #list-view-btn
-                       add .hidden to #list-table
-                       remove .hidden from #pivot-table">
-                クロス表形式
-            </button>
+    <!-- 表示形式切り替えと軸入れ替え -->
+    <div class="flex items-center justify-between">
+        <div class="flex items-center space-x-4">
+            <span class="text-sm font-medium text-gray-700">表示形式:</span>
+            <div class="inline-flex rounded-md shadow-sm" role="group">
+                <button type="button" id="list-view-btn"
+                        class="px-4 py-2 text-sm font-medium text-gray-700 bg-white rounded-l-lg hover:bg-gray-50 border border-gray-300"
+                        _="on click
+                           remove .bg-white .text-gray-700 .border-gray-300 .hover:bg-gray-50 from me
+                           add .bg-blue-600 .text-white .border-blue-600 .hover:bg-blue-700 to me
+                           remove .bg-blue-600 .text-white .border-blue-600 .hover:bg-blue-700 from #pivot-view-btn
+                           add .bg-white .text-gray-700 .border-gray-300 .hover:bg-gray-50 to #pivot-view-btn
+                           remove .hidden from #list-table
+                           add .hidden to #pivot-table">
+                    リスト形式
+                </button>
+                <button type="button" id="pivot-view-btn"
+                        class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-r-lg hover:bg-blue-700 border border-blue-600"
+                        _="on click
+                           remove .bg-white .text-gray-700 .border-gray-300 .hover:bg-gray-50 from me
+                           add .bg-blue-600 .text-white .border-blue-600 .hover:bg-blue-700 to me
+                           remove .bg-blue-600 .text-white .border-blue-600 .hover:bg-blue-700 from #list-view-btn
+                           add .bg-white .text-gray-700 .border-gray-300 .hover:bg-gray-50 to #list-view-btn
+                           add .hidden to #list-table
+                           remove .hidden from #pivot-table">
+                    クロス表形式
+                </button>
+            </div>
         </div>
+
+        <!-- 軸入れ替えボタン -->
+        <button type="button"
+                class="px-4 py-2 text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 border border-gray-300 rounded-lg transition duration-200"
+                hx-post="/api/crosstab"
+                hx-vals='{"x_column": "{{.YColumnIndex}}", "y_column": "{{.XColumnIndex}}", "split_x": "{{if .SplitY}}true{{else}}false{{end}}", "split_y": "{{if .SplitX}}true{{else}}false{{end}}"{{if .FilterName}}, "filter": "{{.FilterName}}"{{end}}}'
+                hx-target="#result-area"
+                hx-swap="innerHTML">
+            ⇄ 軸を入れ替え
+        </button>
     </div>
 
     <!-- リスト形式の表 -->
