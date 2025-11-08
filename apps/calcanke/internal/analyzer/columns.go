@@ -3,6 +3,7 @@ package analyzer
 import (
 	"database/sql"
 	"fmt"
+	"strings"
 )
 
 // GetColumns は全列の情報を取得
@@ -53,6 +54,20 @@ func (a *Analyzer) GetColumns() (ColumnList, error) {
 
 // detectMultiAnswer は列が複数回答かどうかを判定
 func (a *Analyzer) detectMultiAnswer(columnName string) (bool, error) {
+	// 列名に複数回答を示すキーワードが含まれている場合は複数回答と判定
+	multiKeywords := []string{
+		"複数回答可",
+		"複数回答",
+		"（複数選択可）",
+		"複数選択可",
+	}
+	for _, keyword := range multiKeywords {
+		if strings.Contains(columnName, keyword) {
+			return true, nil
+		}
+	}
+
+	// データの内容から判定
 	query := fmt.Sprintf(`
 		SELECT
 			COUNT(*) as total,
@@ -72,7 +87,7 @@ func (a *Analyzer) detectMultiAnswer(columnName string) (bool, error) {
 		return false, nil
 	}
 
-	// 10%以上が改行を含む場合は複数回答と判定
+	// 5%以上が改行を含む場合は複数回答と判定（閾値を10%から5%に下げる）
 	ratio := float64(multiCount) / float64(total)
-	return ratio > 0.1, nil
+	return ratio > 0.05, nil
 }
