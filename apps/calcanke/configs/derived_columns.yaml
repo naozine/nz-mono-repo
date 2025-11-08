@@ -1,0 +1,103 @@
+# 派生列の定義
+# この設定ファイルで、既存の列から新しい列を動的に生成できます
+
+derived_columns:
+  # エリア分類の例
+  - name: "エリア分類"
+    description: "首都圏のエリア分類（東京23区、三多摩島しょ、埼玉県、神奈川県、千葉県、その他）"
+    calculation_type: "rules"  # ルールベースの分類
+    source_columns:
+      - "都道府県"
+      - "市区町村"
+
+    rules:
+      # 東京23区
+      - label: "東京23区"
+        conditions:
+          - column: "都道府県"
+            operator: "equals"
+            value: "東京都"
+          - column: "市区町村"
+            operator: "starts_with_any"
+            values:
+              - "千代田区"
+              - "中央区"
+              - "港区"
+              - "新宿区"
+              - "文京区"
+              - "台東区"
+              - "墨田区"
+              - "江東区"
+              - "品川区"
+              - "目黒区"
+              - "大田区"
+              - "世田谷区"
+              - "渋谷区"
+              - "中野区"
+              - "杉並区"
+              - "豊島区"
+              - "北区"
+              - "荒川区"
+              - "板橋区"
+              - "練馬区"
+              - "足立区"
+              - "葛飾区"
+              - "江戸川区"
+
+      # 三多摩島しょ
+      - label: "三多摩島しょ"
+        conditions:
+          - column: "都道府県"
+            operator: "equals"
+            value: "東京都"
+
+      # 埼玉県
+      - label: "埼玉県"
+        conditions:
+          - column: "都道府県"
+            operator: "equals"
+            value: "埼玉県"
+
+      # 神奈川県
+      - label: "神奈川県"
+        conditions:
+          - column: "都道府県"
+            operator: "equals"
+            value: "神奈川県"
+
+      # 千葉県
+      - label: "千葉県"
+        conditions:
+          - column: "都道府県"
+            operator: "equals"
+            value: "千葉県"
+
+      # その他
+      - label: "その他"
+        is_default: true
+
+  # 学年の計算
+  - name: "学年"
+    description: "生年月日から算出した学年（2025年度基準）"
+    calculation_type: "grade_from_birthdate"  # 学年計算専用
+    source_columns:
+      - "生年月日"
+
+    parameters:
+      target_year: 2025          # 対象年度
+      birthdate_column: "生年月日"  # 生年月日列名
+
+  # 学校種別の計算
+  - name: "学校種別"
+    description: "生年月日から算出した学校種別（小学生・中学生・その他、2025年度基準）"
+    calculation_type: "school_type_from_birthdate"  # 学校種別計算専用
+    source_columns:
+      - "生年月日"
+
+    parameters:
+      target_year: 2025          # 対象年度
+      birthdate_column: "生年月日"  # 生年月日列名
+      labels:
+        elementary: "小学生"      # 小学生のラベル（省略可、デフォルト: "小学生"）
+        junior_high: "中学生"     # 中学生のラベル（省略可、デフォルト: "中学生"）
+        other: "その他"           # その他のラベル（省略可、デフォルト: "その他"）
