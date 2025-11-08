@@ -4,23 +4,17 @@
         <thead class="bg-gray-50">
             <tr>
                 <!-- 左上の空セル -->
-                <th rowspan="2" class="px-4 py-3 border border-gray-300 bg-gray-100 sticky left-0">
+                <th class="px-4 py-3 border border-gray-300 bg-gray-100 sticky left-0">
                     <div class="text-xs font-medium text-gray-500 text-center">
                         {{.Pivot.XColumn}}<br>\<br>{{.Pivot.YColumn}}
                     </div>
                 </th>
 
-                <!-- Y値のヘッダー（各Y値に2列: 件数と割合） -->
+                <!-- Y値のヘッダー -->
                 {{range .Pivot.YValues}}
-                <th colspan="2" class="px-4 py-3 border border-gray-300 text-center bg-gray-50">
+                <th class="px-4 py-3 border border-gray-300 text-center bg-gray-50">
                     <div class="text-sm font-medium text-gray-900">{{.}}</div>
                 </th>
-                {{end}}
-            </tr>
-            <tr class="bg-gray-50">
-                {{range .Pivot.YValues}}
-                <th class="px-3 py-2 border border-gray-300 text-xs text-gray-500 text-right">件数</th>
-                <th class="px-3 py-2 border border-gray-300 text-xs text-gray-500 text-right">割合</th>
                 {{end}}
             </tr>
         </thead>
@@ -36,16 +30,11 @@
                 {{range $y := $.Pivot.YValues}}
                 {{$cell := index (index $.Pivot.Matrix $x) $y}}
                 {{if $cell.Exists}}
-                <td class="px-3 py-3 border border-gray-300 text-right text-sm">
-                    {{$cell.Count}}
-                </td>
-                <td class="px-3 py-3 border border-gray-300 text-right text-sm">
-                    {{printf "%.1f%%" $cell.Percentage}}
+                <td class="px-3 py-3 border border-gray-300 text-right">
+                    <div class="text-sm font-medium text-gray-900">{{$cell.Count}}</div>
+                    <div class="text-xs text-gray-500">{{printf "%.1f%%" $cell.Percentage}}</div>
                 </td>
                 {{else}}
-                <td class="px-3 py-3 border border-gray-300 text-right text-sm text-gray-400">
-                    -
-                </td>
                 <td class="px-3 py-3 border border-gray-300 text-right text-sm text-gray-400">
                     -
                 </td>
