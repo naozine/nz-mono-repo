@@ -2,10 +2,19 @@ package analyzer
 
 import (
 	"fmt"
+	"strings"
 )
 
 // Crosstab はクロス集計を実行
 func (a *Analyzer) Crosstab(config AnalysisConfig) (*CrosstabResult, error) {
+	// 派生列の場合は複数回答の分割に対応しない
+	if config.XColumn.IsDerived {
+		config.SplitX = false
+	}
+	if config.YColumn.IsDerived {
+		config.SplitY = false
+	}
+
 	// SQLを動的に構築
 	var query string
 
@@ -57,26 +66,41 @@ func (a *Analyzer) Crosstab(config AnalysisConfig) (*CrosstabResult, error) {
 
 // buildSimpleCrosstabQuery はシンプルなクロス集計のSQLを生成
 func (a *Analyzer) buildSimpleCrosstabQuery(config AnalysisConfig) string {
+	xExpr := config.XColumn.GetSQLExpression()
+	yExpr := config.YColumn.GetSQLExpression()
+
+	// WHERE句の構築（派生列の場合は不要）
+	var whereClauses []string
+	if !config.XColumn.IsDerived {
+		whereClauses = append(whereClauses, fmt.Sprintf(`"%s" IS NOT NULL`, config.XColumn.Name))
+	}
+	if !config.YColumn.IsDerived {
+		whereClauses = append(whereClauses, fmt.Sprintf(`"%s" IS NOT NULL`, config.YColumn.Name))
+	}
+	whereClause := ""
+	if len(whereClauses) > 0 {
+		whereClause = "WHERE " + strings.Join(whereClauses, " AND ")
+	}
+
 	return fmt.Sprintf(`
 		SELECT
-			"%s" as x_value,
-			"%s" as y_value,
+			%s as x_value,
+			%s as y_value,
 			COUNT(*) as count,
-			ROUND(COUNT(*) * 100.0 / SUM(COUNT(*)) OVER(PARTITION BY "%s"), 1) as percentage
+			ROUND(COUNT(*) * 100.0 / SUM(COUNT(*)) OVER(PARTITION BY %s), 1) as percentage
 		FROM %s
-		WHERE "%s" IS NOT NULL AND "%s" IS NOT NULL
-		GROUP BY "%s", "%s"
-		ORDER BY "%s", count DESC
+		%s
+		GROUP BY %s, %s
+		ORDER BY %s, count DESC
 	`,
-		config.XColumn.Name,
-		config.YColumn.Name,
-		config.XColumn.Name,
+		xExpr,
+		yExpr,
+		xExpr,
 		a.Table,
-		config.XColumn.Name,
-		config.YColumn.Name,
-		config.XColumn.Name,
-		config.YColumn.Name,
-		config.XColumn.Name,
+		whereClause,
+		xExpr,
+		yExpr,
+		xExpr,
 	)
 }
 

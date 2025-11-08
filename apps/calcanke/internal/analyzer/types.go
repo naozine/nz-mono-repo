@@ -9,6 +9,16 @@ type Column struct {
 	Type        string // データ型（VARCHAR, INTEGER等）
 	IsMulti     bool   // 複数回答かどうか（改行含む割合で判定）
 	UniqueCount int    // ユニーク値の数
+	IsDerived   bool   // 派生列かどうか
+	SQLExpr     string // 派生列の場合のSQL式（CASE式など）
+}
+
+// GetSQLExpression はSQL SELECT句で使用する式を返す
+func (c *Column) GetSQLExpression() string {
+	if c.IsDerived {
+		return c.SQLExpr
+	}
+	return fmt.Sprintf(`"%s"`, c.Name)
 }
 
 // ColumnList は列の一覧
@@ -19,7 +29,9 @@ func (cl ColumnList) ToOptions() []string {
 	options := make([]string, len(cl))
 	for i, col := range cl {
 		marker := ""
-		if col.IsMulti {
+		if col.IsDerived {
+			marker = " [派生列]"
+		} else if col.IsMulti {
 			marker = " [複数回答]"
 		}
 		options[i] = fmt.Sprintf("%2d  %s%s", col.Index, col.Name, marker)

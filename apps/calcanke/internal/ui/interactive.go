@@ -69,8 +69,12 @@ func runCrosstabFlow(a *analyzer.Analyzer, columns analyzer.ColumnList) error {
 		Message: "X軸の列を選択してください:",
 		Options: columns.ToOptions(),
 		Description: func(value string, index int) string {
-			if index < len(columns) && columns[index].IsMulti {
-				return "この列は複数回答を含みます"
+			if index < len(columns) {
+				if columns[index].IsDerived {
+					return "派生列（設定ファイルで定義）"
+				} else if columns[index].IsMulti {
+					return "この列は複数回答を含みます"
+				}
 			}
 			return ""
 		},
@@ -90,8 +94,12 @@ func runCrosstabFlow(a *analyzer.Analyzer, columns analyzer.ColumnList) error {
 		Message: "Y軸の列を選択してください:",
 		Options: columns.ToOptions(),
 		Description: func(value string, index int) string {
-			if index < len(columns) && columns[index].IsMulti {
-				return "この列は複数回答を含みます"
+			if index < len(columns) {
+				if columns[index].IsDerived {
+					return "派生列（設定ファイルで定義）"
+				} else if columns[index].IsMulti {
+					return "この列は複数回答を含みます"
+				}
 			}
 			return ""
 		},
@@ -111,8 +119,8 @@ func runCrosstabFlow(a *analyzer.Analyzer, columns analyzer.ColumnList) error {
 		YColumn: yColumn,
 	}
 
-	// X軸が複数回答の場合、分割するか確認
-	if xColumn.IsMulti {
+	// X軸が複数回答の場合、分割するか確認（派生列は除く）
+	if xColumn.IsMulti && !xColumn.IsDerived {
 		var splitX bool
 		survey.AskOne(&survey.Confirm{
 			Message: "X軸を複数回答として分割しますか？",
@@ -121,8 +129,8 @@ func runCrosstabFlow(a *analyzer.Analyzer, columns analyzer.ColumnList) error {
 		config.SplitX = splitX
 	}
 
-	// Y軸が複数回答の場合、分割するか確認
-	if yColumn.IsMulti {
+	// Y軸が複数回答の場合、分割するか確認（派生列は除く）
+	if yColumn.IsMulti && !yColumn.IsDerived {
 		var splitY bool
 		survey.AskOne(&survey.Confirm{
 			Message: "Y軸を複数回答として分割しますか？",
@@ -169,8 +177,12 @@ func runSimpletabFlow(a *analyzer.Analyzer, columns analyzer.ColumnList) error {
 		Message: "集計する列を選択してください:",
 		Options: columns.ToOptions(),
 		Description: func(value string, index int) string {
-			if index < len(columns) && columns[index].IsMulti {
-				return "この列は複数回答を含みます"
+			if index < len(columns) {
+				if columns[index].IsDerived {
+					return "派生列（設定ファイルで定義）"
+				} else if columns[index].IsMulti {
+					return "この列は複数回答を含みます"
+				}
 			}
 			return ""
 		},
@@ -184,9 +196,9 @@ func runSimpletabFlow(a *analyzer.Analyzer, columns analyzer.ColumnList) error {
 
 	fmt.Printf("\n✓ 集計列: %s\n\n", column.Name)
 
-	// 複数回答列の場合、分割するか確認
+	// 複数回答列の場合、分割するか確認（派生列は除く）
 	split := false
-	if column.IsMulti {
+	if column.IsMulti && !column.IsDerived {
 		survey.AskOne(&survey.Confirm{
 			Message: "複数回答として分割しますか？",
 			Default: true,

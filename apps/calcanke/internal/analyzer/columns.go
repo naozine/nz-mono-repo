@@ -49,6 +49,13 @@ func (a *Analyzer) GetColumns() (ColumnList, error) {
 		return nil, fmt.Errorf("error iterating rows: %w", err)
 	}
 
+	// 派生列を追加
+	for _, derivedCol := range a.DerivedColumns {
+		col := derivedCol.GetDerivedColumn(index)
+		columns = append(columns, col)
+		index++
+	}
+
 	return columns, nil
 }
 

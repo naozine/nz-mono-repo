@@ -6,6 +6,11 @@ import (
 
 // Simpletab は単純集計を実行
 func (a *Analyzer) Simpletab(column *Column, split bool) (*SimpletabResult, error) {
+	// 派生列の場合は複数回答の分割に対応しない
+	if column.IsDerived {
+		split = false
+	}
+
 	// SQLを動的に構築
 	var query string
 
@@ -52,20 +57,28 @@ func (a *Analyzer) Simpletab(column *Column, split bool) (*SimpletabResult, erro
 
 // buildSimpleSimpletabQuery はシンプルな単純集計のSQLを生成
 func (a *Analyzer) buildSimpleSimpletabQuery(column *Column) string {
+	colExpr := column.GetSQLExpression()
+
+	// 派生列の場合、WHERE句は不要（CASE式でNULLハンドリングされる）
+	whereClause := ""
+	if !column.IsDerived {
+		whereClause = fmt.Sprintf(`WHERE "%s" IS NOT NULL`, column.Name)
+	}
+
 	return fmt.Sprintf(`
 		SELECT
-			"%s" as value,
+			%s as value,
 			COUNT(*) as count,
 			ROUND(COUNT(*) * 100.0 / SUM(COUNT(*)) OVER(), 1) as percentage
 		FROM %s
-		WHERE "%s" IS NOT NULL
-		GROUP BY "%s"
+		%s
+		GROUP BY %s
 		ORDER BY count DESC
 	`,
-		column.Name,
+		colExpr,
 		a.Table,
-		column.Name,
-		column.Name,
+		whereClause,
+		colExpr,
 	)
 }
 

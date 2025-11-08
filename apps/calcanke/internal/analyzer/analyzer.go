@@ -9,9 +9,11 @@ import (
 
 // Analyzer はデータ分析を実行
 type Analyzer struct {
-	db     *sql.DB
-	DBPath string
-	Table  string
+	db             *sql.DB
+	DBPath         string
+	Table          string
+	DerivedColumns []DerivedColumn
+	derivedColsMap map[string]*DerivedColumn // 名前から派生列を引くマップ
 }
 
 // NewAnalyzer はAnalyzerを作成
@@ -40,10 +42,25 @@ func NewAnalyzer(dbPath, table string) (*Analyzer, error) {
 		return nil, fmt.Errorf("table %s not found or cannot be accessed: %w", table, err)
 	}
 
+	// 派生列の設定を読み込み（オプショナル）
+	derivedCols, err := LoadDerivedColumns("configs/derived_columns.yaml")
+	if err != nil {
+		// 設定ファイルがなくてもエラーにしない
+		derivedCols = []DerivedColumn{}
+	}
+
+	// 派生列のマップを作成
+	derivedColsMap := make(map[string]*DerivedColumn)
+	for i := range derivedCols {
+		derivedColsMap[derivedCols[i].Name] = &derivedCols[i]
+	}
+
 	return &Analyzer{
-		db:     db,
-		DBPath: dbPath,
-		Table:  table,
+		db:             db,
+		DBPath:         dbPath,
+		Table:          table,
+		DerivedColumns: derivedCols,
+		derivedColsMap: derivedColsMap,
 	}, nil
 }
 
