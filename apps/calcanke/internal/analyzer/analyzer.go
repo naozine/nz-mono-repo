@@ -10,8 +10,8 @@ import (
 // Analyzer はデータ分析を実行
 type Analyzer struct {
 	db     *sql.DB
-	dbPath string
-	table  string
+	DBPath string
+	Table  string
 }
 
 // NewAnalyzer はAnalyzerを作成
@@ -42,8 +42,8 @@ func NewAnalyzer(dbPath, table string) (*Analyzer, error) {
 
 	return &Analyzer{
 		db:     db,
-		dbPath: dbPath,
-		table:  table,
+		DBPath: dbPath,
+		Table:  table,
 	}, nil
 }
 
@@ -58,7 +58,7 @@ func (a *Analyzer) Close() error {
 // GetTableInfo はテーブルの基本情報を取得
 func (a *Analyzer) GetTableInfo() (int, error) {
 	var count int
-	query := fmt.Sprintf("SELECT COUNT(*) FROM %s", a.table)
+	query := fmt.Sprintf("SELECT COUNT(*) FROM %s", a.Table)
 	err := a.db.QueryRow(query).Scan(&count)
 	if err != nil {
 		return 0, fmt.Errorf("failed to get table info: %w", err)

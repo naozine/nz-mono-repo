@@ -71,7 +71,7 @@ func (a *Analyzer) buildSimpleCrosstabQuery(config AnalysisConfig) string {
 		config.XColumn.Name,
 		config.YColumn.Name,
 		config.XColumn.Name,
-		a.table,
+		a.Table,
 		config.XColumn.Name,
 		config.YColumn.Name,
 		config.XColumn.Name,
@@ -111,7 +111,7 @@ func (a *Analyzer) buildMultiAnswerCrosstabQuery(config AnalysisConfig) string {
 	`,
 		xExpr,
 		yExpr,
-		a.table,
+		a.Table,
 		config.XColumn.Name,
 		config.YColumn.Name,
 	)

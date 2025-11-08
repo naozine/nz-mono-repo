@@ -60,3 +60,17 @@ type CrosstabRow struct {
 	Count      int
 	Percentage float64 // X値内での割合
 }
+
+// SimpletabResult は単純集計の結果
+type SimpletabResult struct {
+	Column string
+	Rows   []SimpletabRow
+	Total  int
+}
+
+// SimpletabRow は単純集計の1行
+type SimpletabRow struct {
+	Value      string
+	Count      int
+	Percentage float64
+}

@@ -8,7 +8,7 @@ import (
 // GetColumns は全列の情報を取得
 func (a *Analyzer) GetColumns() (ColumnList, error) {
 	// 1. DESCRIBE でスキーマ取得
-	query := fmt.Sprintf("DESCRIBE %s", a.table)
+	query := fmt.Sprintf("DESCRIBE %s", a.Table)
 	rows, err := a.db.Query(query)
 	if err != nil {
 		return nil, fmt.Errorf("failed to describe table: %w", err)
@@ -59,7 +59,7 @@ func (a *Analyzer) detectMultiAnswer(columnName string) (bool, error) {
 			SUM(CASE WHEN POSITION(CHR(10) IN "%s") > 0 THEN 1 ELSE 0 END) as multi_count
 		FROM %s
 		WHERE "%s" IS NOT NULL
-	`, columnName, a.table, columnName)
+	`, columnName, a.Table, columnName)
 
 	var total, multiCount int
 	err := a.db.QueryRow(query).Scan(&total, &multiCount)
