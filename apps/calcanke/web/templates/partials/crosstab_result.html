@@ -11,8 +11,9 @@
     </div>
 
     <!-- 表示切り替えコントロール -->
-    <div class="flex items-center justify-between">
-        <!-- 表示形式切り替え -->
+    <div class="flex flex-col space-y-4">
+        <div class="flex items-center justify-between">
+            <!-- 表示形式切り替え -->
         <div class="flex items-center space-x-4">
             <span class="text-sm font-medium text-gray-700">表示形式:</span>
             <div class="inline-flex rounded-md shadow-sm" role="group">
@@ -41,13 +42,36 @@
         </div>
         </div>
 
-        <!-- グラフ表示トグル -->
-        <div class="flex items-center space-x-2">
-            <button type="button" id="chart-toggle-btn"
-                    class="px-4 py-2 text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 border border-gray-300 rounded-lg transition duration-200"
-                    onclick="toggleChart()">
-                <span id="chart-toggle-text">グラフを表示</span>
-            </button>
+            <!-- グラフ表示トグル -->
+            <div class="flex items-center space-x-2">
+                <button type="button" id="chart-toggle-btn"
+                        class="px-4 py-2 text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 border border-gray-300 rounded-lg transition duration-200"
+                        onclick="toggleChart()">
+                    <span id="chart-toggle-text">グラフを表示</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- グラフモード切り替え -->
+        <div class="flex items-center space-x-4">
+            <span class="text-sm font-medium text-gray-700">グラフ表示:</span>
+            <div class="inline-flex rounded-md shadow-sm" role="group">
+                <button type="button" id="chart-mode-count"
+                        class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-l-lg hover:bg-blue-700 border border-blue-600"
+                        onclick="switchChartMode('count')">
+                    件数
+                </button>
+                <button type="button" id="chart-mode-row-percent"
+                        class="px-4 py-2 text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 border-t border-b border-gray-300"
+                        onclick="switchChartMode('row-percent')">
+                    行比率(%)
+                </button>
+                <button type="button" id="chart-mode-total-percent"
+                        class="px-4 py-2 text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 border border-gray-300 rounded-r-lg"
+                        onclick="switchChartMode('total-percent')">
+                    全体比率(%)
+                </button>
+            </div>
         </div>
     </div>
 
@@ -85,6 +109,43 @@
 </div>
 
 <script>
+// グラフ表示モード（グローバル変数）
+window.chartMode = 'count'; // デフォルトは件数
+
+// グラフモードを切り替え
+function switchChartMode(mode) {
+    window.chartMode = mode;
+
+    // ボタンのスタイルを更新
+    const buttons = {
+        'count': document.getElementById('chart-mode-count'),
+        'row-percent': document.getElementById('chart-mode-row-percent'),
+        'total-percent': document.getElementById('chart-mode-total-percent')
+    };
+
+    // すべてのボタンを非選択状態に
+    Object.values(buttons).forEach(btn => {
+        if (btn) {
+            btn.classList.remove('bg-blue-600', 'text-white', 'border-blue-600', 'hover:bg-blue-700');
+            btn.classList.add('bg-white', 'text-gray-700', 'border-gray-300', 'hover:bg-gray-50');
+        }
+    });
+
+    // 選択されたボタンを選択状態に
+    if (buttons[mode]) {
+        buttons[mode].classList.remove('bg-white', 'text-gray-700', 'border-gray-300', 'hover:bg-gray-50');
+        buttons[mode].classList.add('bg-blue-600', 'text-white', 'border-blue-600', 'hover:bg-blue-700');
+    }
+
+    // グラフを再描画
+    renderChart();
+
+    // URLを更新
+    if (window.updateURL) {
+        window.updateURL(true);
+    }
+}
+
 // グラフの表示/非表示を切り替え
 function toggleChart() {
     const chartArea = document.getElementById('chart-area');
@@ -141,11 +202,33 @@ function renderChart() {
     pivotData.YValues.forEach((yValue, index) => {
         const data = [];
 
-        // X軸の各値に対してカウントを取得
+        // X軸の各値に対してデータを取得
         pivotData.XValues.forEach(xValue => {
             const cell = pivotData.Matrix[xValue] && pivotData.Matrix[xValue][yValue];
-            const count = cell && cell.Exists ? cell.Count : 0;
-            data.push(count);
+
+            if (window.chartMode === 'count') {
+                // 件数モード
+                const count = cell && cell.Exists ? cell.Count : 0;
+                data.push(count);
+            } else if (window.chartMode === 'row-percent') {
+                // 行比率モード（各X値ごとに100%）
+                if (cell && cell.Exists) {
+                    // X値の行合計を計算
+                    let rowTotal = 0;
+                    pivotData.YValues.forEach(y => {
+                        const c = pivotData.Matrix[xValue] && pivotData.Matrix[xValue][y];
+                        if (c && c.Exists) rowTotal += c.Count;
+                    });
+                    const percentage = rowTotal > 0 ? (cell.Count / rowTotal * 100) : 0;
+                    data.push(percentage);
+                } else {
+                    data.push(0);
+                }
+            } else if (window.chartMode === 'total-percent') {
+                // 全体比率モード（全体に対する割合）
+                const percentage = cell && cell.Exists ? cell.Percentage : 0;
+                data.push(percentage);
+            }
         });
 
         datasets.push({
@@ -156,6 +239,17 @@ function renderChart() {
             borderWidth: 1
         });
     });
+
+    // モードに応じた軸ラベルとツールチップの設定
+    let xAxisLabel = '件数';
+    let tooltipSuffix = '';
+    if (window.chartMode === 'row-percent') {
+        xAxisLabel = '行比率(%)';
+        tooltipSuffix = '%';
+    } else if (window.chartMode === 'total-percent') {
+        xAxisLabel = '全体比率(%)';
+        tooltipSuffix = '%';
+    }
 
     // グラフを描画
     window.crosstabChartInstance = new Chart(ctx, {
@@ -180,6 +274,22 @@ function renderChart() {
                 legend: {
                     display: true,
                     position: 'top',
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            let label = context.dataset.label || '';
+                            if (label) {
+                                label += ': ';
+                            }
+                            if (window.chartMode === 'count') {
+                                label += context.parsed.x.toLocaleString();
+                            } else {
+                                label += context.parsed.x.toFixed(1) + '%';
+                            }
+                            return label;
+                        }
+                    }
                 }
             },
             scales: {
@@ -187,7 +297,16 @@ function renderChart() {
                     stacked: true,
                     title: {
                         display: true,
-                        text: '件数'
+                        text: xAxisLabel
+                    },
+                    ticks: {
+                        callback: function(value) {
+                            if (window.chartMode === 'count') {
+                                return value.toLocaleString();
+                            } else {
+                                return value.toFixed(0) + '%';
+                            }
+                        }
                     }
                 },
                 y: {
@@ -284,6 +403,30 @@ document.body.addEventListener('htmx:afterSettle', function(event) {
         // URLパラメータからグラフ表示状態を取得（デフォルトは表示）
         const params = new URLSearchParams(window.location.search);
         const shouldShowChart = params.get('chart') === '1' || params.get('chart') === null;
+        const chartMode = params.get('chartMode') || 'count';
+
+        // グラフモードを復元
+        window.chartMode = chartMode;
+
+        // ボタンの状態を復元
+        const buttons = {
+            'count': document.getElementById('chart-mode-count'),
+            'row-percent': document.getElementById('chart-mode-row-percent'),
+            'total-percent': document.getElementById('chart-mode-total-percent')
+        };
+
+        Object.keys(buttons).forEach(mode => {
+            const btn = buttons[mode];
+            if (btn) {
+                if (mode === chartMode) {
+                    btn.classList.remove('bg-white', 'text-gray-700', 'border-gray-300', 'hover:bg-gray-50');
+                    btn.classList.add('bg-blue-600', 'text-white', 'border-blue-600', 'hover:bg-blue-700');
+                } else {
+                    btn.classList.remove('bg-blue-600', 'text-white', 'border-blue-600', 'hover:bg-blue-700');
+                    btn.classList.add('bg-white', 'text-gray-700', 'border-gray-300', 'hover:bg-gray-50');
+                }
+            }
+        });
 
         const chartArea = document.getElementById('chart-area');
         const toggleText = document.getElementById('chart-toggle-text');

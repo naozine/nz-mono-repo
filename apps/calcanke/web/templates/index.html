@@ -102,7 +102,8 @@
             sx: params.get('sx') === '1',
             sy: params.get('sy') === '1',
             filter: params.get('filter') || '',
-            chart: params.get('chart') === '1' || params.get('chart') === null // デフォルトは表示
+            chart: params.get('chart') === '1' || params.get('chart') === null, // デフォルトは表示
+            chartMode: params.get('chartMode') || 'count' // デフォルトは件数
         };
     }
 
@@ -143,6 +144,11 @@
             } else {
                 params.set('chart', '1');
             }
+
+            // グラフモードも更新
+            if (window.chartMode) {
+                params.set('chartMode', window.chartMode);
+            }
         } else {
             // 既存のURLパラメータからchart状態を取得して維持
             const currentParams = new URLSearchParams(window.location.search);
@@ -151,6 +157,14 @@
                 params.set('chart', currentChart);
             } else {
                 params.set('chart', '1'); // デフォルトは表示
+            }
+
+            // グラフモードも維持
+            const currentChartMode = currentParams.get('chartMode');
+            if (currentChartMode) {
+                params.set('chartMode', currentChartMode);
+            } else {
+                params.set('chartMode', 'count'); // デフォルトは件数
             }
         }
 
