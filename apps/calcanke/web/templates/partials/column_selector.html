@@ -35,8 +35,8 @@
             const isDerived = selected.dataset.derived === 'true';
             const splitOption = document.getElementById('split-option');
 
-            // 派生列でなく、複数回答の場合のみ表示
-            if (isMulti && !isDerived) {
+            // 複数回答の場合は分割オプションを表示
+            if (isMulti) {
                 splitOption.style.display = 'block';
             } else {
                 splitOption.style.display = 'none';
@@ -212,8 +212,7 @@
             // X軸の分割オプション
             if (xRadio) {
                 const isMulti = xRadio.dataset.multi === 'true';
-                const isDerived = xRadio.dataset.derived === 'true';
-                if (isMulti && !isDerived) {
+                if (isMulti) {
                     splitXOption.classList.remove('hidden');
                 } else {
                     splitXOption.classList.add('hidden');
@@ -227,8 +226,7 @@
             // Y軸の分割オプション
             if (yRadio) {
                 const isMulti = yRadio.dataset.multi === 'true';
-                const isDerived = yRadio.dataset.derived === 'true';
-                if (isMulti && !isDerived) {
+                if (isMulti) {
                     splitYOption.classList.remove('hidden');
                 } else {
                     splitYOption.classList.add('hidden');

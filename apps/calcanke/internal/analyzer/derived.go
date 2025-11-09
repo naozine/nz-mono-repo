@@ -61,6 +61,8 @@ func (dc *DerivedColumn) GenerateCaseExpression() string {
 		return dc.generateGradeCalculation()
 	case "school_type_from_birthdate":
 		return dc.generateSchoolTypeCalculation()
+	case "merge":
+		return dc.generateMergeExpression()
 	case "rules", "":
 		// デフォルトはルールベース
 		return dc.generateRuleBasedExpression()
@@ -316,13 +318,46 @@ func (dc *DerivedColumn) generateSchoolTypeCalculation() string {
 	return caseExpr
 }
 
+// generateMergeExpression は複数列を結合するSQL式を生成
+func (dc *DerivedColumn) generateMergeExpression() string {
+	// パラメータからセパレータを取得（デフォルトは"|||"）
+	separator := "|||"
+	if sep, ok := dc.Parameters["separator"]; ok {
+		if s, ok := sep.(string); ok {
+			separator = s
+		}
+	}
+
+	// ソース列が指定されていない場合はエラー
+	if len(dc.SourceColumns) == 0 {
+		return "NULL"
+	}
+
+	// 各列をNULLIF(TRIM(列), '')でラップして空文字を除外
+	var columns []string
+	for _, colName := range dc.SourceColumns {
+		columns = append(columns, fmt.Sprintf(`NULLIF(TRIM("%s"), '')`, colName))
+	}
+
+	// CONCAT_WSで結合（NULLは自動的にスキップされる）
+	// 結果が空文字列の場合はNULLに変換
+	expr := fmt.Sprintf("NULLIF(TRIM(CONCAT_WS('%s', %s)), '')",
+		separator,
+		strings.Join(columns, ", "))
+
+	return expr
+}
+
 // GetDerivedColumn は派生列を仮想的なColumnとして返す
 func (dc *DerivedColumn) GetDerivedColumn(index int) Column {
+	// mergeタイプの場合は複数回答として扱う
+	isMulti := dc.CalculationType == "merge"
+
 	return Column{
 		Index:     index,
 		Name:      dc.Name,
 		Type:      "VARCHAR (派生列)",
-		IsMulti:   false,
+		IsMulti:   isMulti,
 		IsDerived: true,
 		SQLExpr:   dc.GenerateCaseExpression(),
 	}

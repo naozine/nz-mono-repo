@@ -12,11 +12,11 @@ func (a *Analyzer) Crosstab(config AnalysisConfig) (*CrosstabResult, error) {
 
 // CrosstabWithFilter はフィルタを適用してクロス集計を実行
 func (a *Analyzer) CrosstabWithFilter(config AnalysisConfig, filter *Filter) (*CrosstabResult, error) {
-	// 派生列の場合は複数回答の分割に対応しない
-	if config.XColumn.IsDerived {
+	// 派生列の場合は、merge タイプ以外は複数回答の分割に対応しない
+	if config.XColumn.IsDerived && !config.XColumn.IsMulti {
 		config.SplitX = false
 	}
-	if config.YColumn.IsDerived {
+	if config.YColumn.IsDerived && !config.YColumn.IsMulti {
 		config.SplitY = false
 	}
 
@@ -122,16 +122,32 @@ func (a *Analyzer) buildSimpleCrosstabQuery(config AnalysisConfig, filter *Filte
 func (a *Analyzer) buildMultiAnswerCrosstabQuery(config AnalysisConfig, filter *Filter) string {
 	// X軸のSQL式を取得
 	var xExpr string
-	if config.SplitX && !config.XColumn.IsDerived {
-		xExpr = fmt.Sprintf(`unnest(string_split("%s", CHR(10)))`, config.XColumn.Name)
+	if config.SplitX {
+		if config.XColumn.IsDerived && config.XColumn.IsMulti {
+			// merge派生列の場合は '|||' で分割
+			xExpr = fmt.Sprintf(`unnest(string_split(%s, '|||'))`, config.XColumn.GetSQLExpression())
+		} else if !config.XColumn.IsDerived {
+			// 通常列の場合は改行で分割
+			xExpr = fmt.Sprintf(`unnest(string_split("%s", CHR(10)))`, config.XColumn.Name)
+		} else {
+			xExpr = config.XColumn.GetSQLExpression()
+		}
 	} else {
 		xExpr = config.XColumn.GetSQLExpression()
 	}
 
 	// Y軸のSQL式を取得
 	var yExpr string
-	if config.SplitY && !config.YColumn.IsDerived {
-		yExpr = fmt.Sprintf(`unnest(string_split("%s", CHR(10)))`, config.YColumn.Name)
+	if config.SplitY {
+		if config.YColumn.IsDerived && config.YColumn.IsMulti {
+			// merge派生列の場合は '|||' で分割
+			yExpr = fmt.Sprintf(`unnest(string_split(%s, '|||'))`, config.YColumn.GetSQLExpression())
+		} else if !config.YColumn.IsDerived {
+			// 通常列の場合は改行で分割
+			yExpr = fmt.Sprintf(`unnest(string_split("%s", CHR(10)))`, config.YColumn.Name)
+		} else {
+			yExpr = config.YColumn.GetSQLExpression()
+		}
 	} else {
 		yExpr = config.YColumn.GetSQLExpression()
 	}

@@ -12,8 +12,8 @@ func (a *Analyzer) Simpletab(column *Column, split bool) (*SimpletabResult, erro
 
 // SimpletabWithFilter はフィルタを適用して単純集計を実行
 func (a *Analyzer) SimpletabWithFilter(column *Column, split bool, filter *Filter) (*SimpletabResult, error) {
-	// 派生列の場合は複数回答の分割に対応しない
-	if column.IsDerived {
+	// 派生列の場合は、merge タイプ以外は複数回答の分割に対応しない
+	if column.IsDerived && !column.IsMulti {
 		split = false
 	}
 
@@ -104,7 +104,6 @@ func (a *Analyzer) buildSimpleSimpletabQuery(column *Column, filter *Filter) str
 }
 
 // buildMultiAnswerSimpletabQuery は複数回答の単純集計のSQLを生成
-// 注意: 派生列の場合は呼ばれない（Simpletab関数でチェック済み）
 func (a *Analyzer) buildMultiAnswerSimpletabQuery(column *Column, filter *Filter) string {
 	// WHERE句の構築
 	var whereClauses []string
@@ -127,10 +126,20 @@ func (a *Analyzer) buildMultiAnswerSimpletabQuery(column *Column, filter *Filter
 		whereClause = "WHERE " + strings.Join(whereClauses, " AND ")
 	}
 
+	// 列式の取得
+	var valueExpr string
+	if column.IsDerived && column.IsMulti {
+		// merge派生列の場合は '|||' で分割
+		valueExpr = fmt.Sprintf(`unnest(string_split(%s, '|||'))`, column.GetSQLExpression())
+	} else {
+		// 通常列の場合は改行で分割
+		valueExpr = fmt.Sprintf(`unnest(string_split("%s", CHR(10)))`, column.Name)
+	}
+
 	return fmt.Sprintf(`
 		WITH split_data AS (
 			SELECT
-				unnest(string_split("%s", CHR(10))) as value
+				%s as value
 			FROM %s
 			%s
 		)
@@ -142,7 +151,7 @@ func (a *Analyzer) buildMultiAnswerSimpletabQuery(column *Column, filter *Filter
 		GROUP BY value
 		ORDER BY count DESC
 	`,
-		column.Name,
+		valueExpr,
 		a.Table,
 		whereClause,
 	)
