@@ -272,7 +272,21 @@ function showToast(message, isSuccess) {
     }, 2000);
 }
 
-// 初期表示時にグラフを描画
-renderChart();
+// グラフエリアが表示されている場合は描画
+if (document.getElementById('chart-area') && !document.getElementById('chart-area').classList.contains('hidden')) {
+    renderChart();
+}
+
+// htmxによるコンテンツ更新後にグラフを再描画
+document.body.addEventListener('htmx:afterSettle', function(event) {
+    // 集計結果が更新された場合のみ
+    if (event.detail.target.id === 'result-area') {
+        const chartArea = document.getElementById('chart-area');
+        // グラフエリアが表示されている場合は再描画
+        if (chartArea && !chartArea.classList.contains('hidden')) {
+            renderChart();
+        }
+    }
+});
 </script>
 {{end}}
