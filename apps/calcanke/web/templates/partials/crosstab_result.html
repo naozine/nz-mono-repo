@@ -10,10 +10,12 @@
         </div>
     </div>
 
-    <!-- 表示形式切り替え -->
-    <div class="flex items-center space-x-4">
-        <span class="text-sm font-medium text-gray-700">表示形式:</span>
-        <div class="inline-flex rounded-md shadow-sm" role="group">
+    <!-- 表示切り替えコントロール -->
+    <div class="flex items-center justify-between">
+        <!-- 表示形式切り替え -->
+        <div class="flex items-center space-x-4">
+            <span class="text-sm font-medium text-gray-700">表示形式:</span>
+            <div class="inline-flex rounded-md shadow-sm" role="group">
             <button type="button" id="list-view-btn"
                     class="px-4 py-2 text-sm font-medium text-gray-700 bg-white rounded-l-lg hover:bg-gray-50 border border-gray-300"
                     _="on click
@@ -37,6 +39,21 @@
                 クロス表形式
             </button>
         </div>
+        </div>
+
+        <!-- グラフ表示トグル -->
+        <div class="flex items-center space-x-2">
+            <button type="button" id="chart-toggle-btn"
+                    class="px-4 py-2 text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 border border-gray-300 rounded-lg transition duration-200"
+                    onclick="toggleChart()">
+                <span id="chart-toggle-text">グラフを表示</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- グラフエリア -->
+    <div id="chart-area" class="hidden border border-gray-200 rounded-lg p-4 bg-white">
+        <canvas id="crosstab-chart"></canvas>
     </div>
 
     <!-- リスト形式の表 -->
@@ -68,6 +85,118 @@
 </div>
 
 <script>
+// グラフの表示/非表示を切り替え
+function toggleChart() {
+    const chartArea = document.getElementById('chart-area');
+    const toggleText = document.getElementById('chart-toggle-text');
+
+    if (chartArea.classList.contains('hidden')) {
+        // グラフを表示
+        chartArea.classList.remove('hidden');
+        toggleText.textContent = 'グラフを非表示';
+
+        // グラフを描画
+        renderChart();
+    } else {
+        // グラフを非表示
+        chartArea.classList.add('hidden');
+        toggleText.textContent = 'グラフを表示';
+    }
+}
+
+// グラフを描画
+function renderChart() {
+    const ctx = document.getElementById('crosstab-chart');
+    if (!ctx) return;
+
+    // 既存のグラフインスタンスを破棄
+    if (window.crosstabChartInstance) {
+        window.crosstabChartInstance.destroy();
+    }
+
+    // ピボットデータを取得（Goテンプレートから）
+    const pivotData = {{.PivotJSON}};
+
+    // Chart.js用のデータセットを作成
+    const datasets = [];
+    const colors = [
+        'rgb(59, 130, 246)',   // blue-500
+        'rgb(236, 72, 153)',   // pink-500
+        'rgb(34, 197, 94)',    // green-500
+        'rgb(251, 146, 60)',   // orange-500
+        'rgb(168, 85, 247)',   // purple-500
+        'rgb(20, 184, 166)',   // teal-500
+        'rgb(249, 115, 22)',   // orange-600
+        'rgb(139, 92, 246)',   // violet-500
+        'rgb(14, 165, 233)',   // sky-500
+        'rgb(244, 63, 94)',    // rose-500
+    ];
+
+    // Y軸の各値に対してデータセットを作成
+    pivotData.YValues.forEach((yValue, index) => {
+        const data = [];
+
+        // X軸の各値に対してカウントを取得
+        pivotData.XValues.forEach(xValue => {
+            const cell = pivotData.Matrix[xValue] && pivotData.Matrix[xValue][yValue];
+            const count = cell && cell.Exists ? cell.Count : 0;
+            data.push(count);
+        });
+
+        datasets.push({
+            label: yValue,
+            data: data,
+            backgroundColor: colors[index % colors.length],
+            borderColor: colors[index % colors.length],
+            borderWidth: 1
+        });
+    });
+
+    // グラフを描画
+    window.crosstabChartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: pivotData.XValues,
+            datasets: datasets
+        },
+        options: {
+            indexAxis: 'y', // 横棒グラフ
+            responsive: true,
+            maintainAspectRatio: true,
+            aspectRatio: 2,
+            plugins: {
+                title: {
+                    display: true,
+                    text: pivotData.XColumn + ' × ' + pivotData.YColumn,
+                    font: {
+                        size: 16
+                    }
+                },
+                legend: {
+                    display: true,
+                    position: 'top',
+                }
+            },
+            scales: {
+                x: {
+                    stacked: true,
+                    title: {
+                        display: true,
+                        text: '件数'
+                    }
+                },
+                y: {
+                    stacked: true,
+                    title: {
+                        display: true,
+                        text: pivotData.XColumn
+                    }
+                }
+            }
+        }
+    });
+}
+
 function copyTableToClipboard() {
     try {
         // 現在表示されているテーブルを特定

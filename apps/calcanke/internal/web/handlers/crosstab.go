@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"encoding/json"
+	"html/template"
 	"net/http"
 	"strconv"
 
@@ -10,9 +12,10 @@ import (
 
 // CrosstabResultData はクロス集計結果のテンプレートデータ
 type CrosstabResultData struct {
-	Result *analyzer.CrosstabResult
-	Pivot  *analyzer.CrosstabPivot
-	Filter *analyzer.Filter
+	Result    *analyzer.CrosstabResult
+	Pivot     *analyzer.CrosstabPivot
+	PivotJSON template.JS
+	Filter    *analyzer.Filter
 }
 
 // Crosstab はクロス集計を実行する
@@ -90,10 +93,17 @@ func (h *Handler) Crosstab(c echo.Context) error {
 	// ピボット形式のデータも生成
 	pivot := result.ToPivot()
 
+	// ピボットデータをJSONに変換
+	pivotJSON, err := json.Marshal(pivot)
+	if err != nil {
+		return c.String(http.StatusInternalServerError, "Failed to marshal pivot data: "+err.Error())
+	}
+
 	data := CrosstabResultData{
-		Result: result,
-		Pivot:  pivot,
-		Filter: filter,
+		Result:    result,
+		Pivot:     pivot,
+		PivotJSON: template.JS(pivotJSON),
+		Filter:    filter,
 	}
 
 	return c.Render(http.StatusOK, "crosstab_result.html", data)
