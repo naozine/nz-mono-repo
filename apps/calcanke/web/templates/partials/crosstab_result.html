@@ -49,13 +49,98 @@
         {{template "crosstab_pivot.html" .}}
     </div>
 
-    <!-- エクスポートボタン（Phase 2で実装予定） -->
+    <!-- エクスポートボタン -->
     <div class="flex justify-end">
-        <button type="button"
-                class="bg-gray-600 hover:bg-gray-700 text-white font-medium py-2 px-4 rounded-lg transition duration-200"
-                disabled>
-            CSV エクスポート（準備中）
+        <button type="button" id="copy-to-clipboard-btn"
+                class="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-lg transition duration-200 flex items-center"
+                onclick="copyTableToClipboard()">
+            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path>
+            </svg>
+            クリップボードにコピー
         </button>
     </div>
+
+    <!-- トースト通知 -->
+    <div id="copy-toast" class="hidden fixed bottom-4 right-4 bg-gray-800 text-white px-6 py-3 rounded-lg shadow-lg transition-opacity duration-300">
+        <span id="copy-toast-message">コピーしました</span>
+    </div>
 </div>
+
+<script>
+function copyTableToClipboard() {
+    try {
+        // 現在表示されているテーブルを特定
+        const pivotTable = document.getElementById('pivot-table');
+        const listTable = document.getElementById('list-table');
+
+        let table;
+        if (!pivotTable.classList.contains('hidden')) {
+            table = pivotTable.querySelector('table');
+        } else if (!listTable.classList.contains('hidden')) {
+            table = listTable.querySelector('table');
+        } else {
+            showToast('テーブルが見つかりません', false);
+            return;
+        }
+
+        // テーブルをTSV形式に変換
+        const tsv = tableToTSV(table);
+
+        // クリップボードにコピー
+        navigator.clipboard.writeText(tsv).then(function() {
+            showToast('クリップボードにコピーしました', true);
+        }).catch(function(err) {
+            showToast('コピーに失敗しました', false);
+            console.error('コピーエラー:', err);
+        });
+    } catch (error) {
+        showToast('エラーが発生しました', false);
+        console.error('エラー:', error);
+    }
+}
+
+function tableToTSV(table) {
+    const rows = [];
+
+    // すべての行を処理
+    table.querySelectorAll('tr').forEach(row => {
+        const cells = [];
+        row.querySelectorAll('th, td').forEach(cell => {
+            // テキスト内容を取得（改行を削除、前後の空白を削除）
+            let text = cell.textContent.trim().replace(/\n/g, ' ').replace(/\s+/g, ' ');
+            cells.push(text);
+        });
+        if (cells.length > 0) {
+            rows.push(cells.join('\t'));
+        }
+    });
+
+    return rows.join('\n');
+}
+
+function showToast(message, isSuccess) {
+    const toast = document.getElementById('copy-toast');
+    const messageElement = document.getElementById('copy-toast-message');
+
+    messageElement.textContent = message;
+
+    // 背景色を成功/失敗で変更
+    if (isSuccess) {
+        toast.classList.remove('bg-red-600');
+        toast.classList.add('bg-gray-800');
+    } else {
+        toast.classList.remove('bg-gray-800');
+        toast.classList.add('bg-red-600');
+    }
+
+    // トーストを表示
+    toast.classList.remove('hidden');
+
+    // 2秒後に非表示
+    setTimeout(function() {
+        toast.classList.add('hidden');
+    }, 2000);
+}
+</script>
 {{end}}
