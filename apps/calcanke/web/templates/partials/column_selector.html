@@ -228,6 +228,7 @@
                 const isMulti = yRadio.dataset.multi === 'true';
                 if (isMulti) {
                     splitYOption.classList.remove('hidden');
+                    if (splitYCheckbox) splitYCheckbox.checked = true;
                 } else {
                     splitYOption.classList.add('hidden');
                     if (splitYCheckbox) splitYCheckbox.checked = false;
