@@ -90,8 +90,77 @@
 </div>
 
 <script>
+    // URLパラメータを取得
+    function getURLParams() {
+        const params = new URLSearchParams(window.location.search);
+        return {
+            type: params.get('type') || 'simple',
+            c: params.get('c'),
+            s: params.get('s') === '1',
+            x: params.get('x'),
+            y: params.get('y'),
+            sx: params.get('sx') === '1',
+            sy: params.get('sy') === '1',
+            filter: params.get('filter') || '',
+            chart: params.get('chart') === '1' || params.get('chart') === null // デフォルトは表示
+        };
+    }
+
+    // URLパラメータを更新
+    function updateURL(forceChartUpdate = false) {
+        const form = document.getElementById('analysis-form');
+        const formData = new FormData(form);
+        const analysisType = formData.get('analysis_type');
+
+        const params = new URLSearchParams();
+        params.set('type', analysisType);
+
+        if (analysisType === 'simple') {
+            const column = formData.get('column');
+            const split = formData.get('split');
+            if (column) params.set('c', column);
+            if (split) params.set('s', '1');
+        } else {
+            const xColumn = formData.get('x_column');
+            const yColumn = formData.get('y_column');
+            const splitX = formData.get('split_x');
+            const splitY = formData.get('split_y');
+            if (xColumn) params.set('x', xColumn);
+            if (yColumn) params.set('y', yColumn);
+            if (splitX) params.set('sx', '1');
+            if (splitY) params.set('sy', '1');
+        }
+
+        const filter = formData.get('filter');
+        if (filter) params.set('filter', filter);
+
+        // グラフ表示状態
+        // forceChartUpdate=trueの場合のみDOM状態から取得、それ以外は既存URLパラメータを維持
+        if (forceChartUpdate) {
+            const chartArea = document.getElementById('chart-area');
+            if (chartArea && chartArea.classList.contains('hidden')) {
+                params.set('chart', '0');
+            } else {
+                params.set('chart', '1');
+            }
+        } else {
+            // 既存のURLパラメータからchart状態を取得して維持
+            const currentParams = new URLSearchParams(window.location.search);
+            const currentChart = currentParams.get('chart');
+            if (currentChart === '0' || currentChart === '1') {
+                params.set('chart', currentChart);
+            } else {
+                params.set('chart', '1'); // デフォルトは表示
+            }
+        }
+
+        // URL更新（履歴は追加しない）
+        const newURL = window.location.pathname + '?' + params.toString();
+        history.replaceState(null, '', newURL);
+    }
+
     // 自動集計実行関数
-    window.triggerAnalysis = function() {
+    window.triggerAnalysis = function(shouldUpdateURL = true) {
         const form = document.getElementById('analysis-form');
         const formData = new FormData(form);
         const analysisType = formData.get('analysis_type');
@@ -125,6 +194,10 @@
         }).then(function() {
             // 成功時にローディングを非表示
             loadingIndicator.classList.add('hidden');
+            // URLを更新（初期ロード時は更新しない）
+            if (shouldUpdateURL) {
+                updateURL();
+            }
         }).catch(function() {
             // エラー時もローディングを非表示
             loadingIndicator.classList.add('hidden');
@@ -135,6 +208,91 @@
     document.getElementById('analysis-form').addEventListener('submit', function(e) {
         e.preventDefault();
     });
+
+    // ページロード時にURLパラメータから状態を復元
+    document.addEventListener('DOMContentLoaded', function() {
+        const urlParams = getURLParams();
+
+        // 分析タイプを復元
+        const typeRadio = document.querySelector(`input[name="analysis_type"][value="${urlParams.type}"]`);
+        if (typeRadio && !typeRadio.checked) {
+            typeRadio.checked = true;
+            typeRadio.dispatchEvent(new Event('change'));
+        }
+
+        // 少し待ってから列選択とフィルタを復元（htmxでUIが更新されるのを待つ）
+        setTimeout(function() {
+            restoreFormState(urlParams);
+        }, 300);
+    });
+
+    // フォーム状態を復元
+    function restoreFormState(urlParams) {
+        if (urlParams.type === 'simple') {
+            // 単純集計の復元
+            if (urlParams.c) {
+                const columnSelect = document.getElementById('column-select');
+                if (columnSelect) {
+                    columnSelect.value = urlParams.c;
+                    columnSelect.dispatchEvent(new Event('change'));
+                }
+            }
+            if (urlParams.s) {
+                const splitCheckbox = document.querySelector('input[name="split"]');
+                if (splitCheckbox) {
+                    splitCheckbox.checked = true;
+                }
+            }
+        } else {
+            // クロス集計の復元
+            if (urlParams.x) {
+                const xRadio = document.querySelector(`input[name="x_column"][value="${urlParams.x}"]`);
+                if (xRadio) {
+                    xRadio.checked = true;
+                    xRadio.dispatchEvent(new Event('change'));
+                }
+            }
+            if (urlParams.y) {
+                const yRadio = document.querySelector(`input[name="y_column"][value="${urlParams.y}"]`);
+                if (yRadio) {
+                    yRadio.checked = true;
+                    yRadio.dispatchEvent(new Event('change'));
+                }
+            }
+            if (urlParams.sx) {
+                const splitXCheckbox = document.querySelector('input[name="split_x"]');
+                if (splitXCheckbox) {
+                    splitXCheckbox.checked = true;
+                }
+            }
+            if (urlParams.sy) {
+                const splitYCheckbox = document.querySelector('input[name="split_y"]');
+                if (splitYCheckbox) {
+                    splitYCheckbox.checked = true;
+                }
+            }
+        }
+
+        // フィルタを復元
+        if (urlParams.filter) {
+            const filterSelect = document.getElementById('filter-select');
+            if (filterSelect) {
+                filterSelect.value = urlParams.filter;
+                filterSelect.dispatchEvent(new Event('change'));
+            }
+        }
+
+        // 条件が揃っていれば自動集計を実行（URLは更新しない）
+        if ((urlParams.type === 'simple' && urlParams.c) ||
+            (urlParams.type === 'cross' && urlParams.x && urlParams.y)) {
+            window.triggerAnalysis(false);
+
+            // グラフ状態が復元された後、URLを更新（htmx処理完了を待つ）
+            setTimeout(function() {
+                updateURL();
+            }, 500);
+        }
+    }
 </script>
 {{end}}
 {{template "base.html" .}}
