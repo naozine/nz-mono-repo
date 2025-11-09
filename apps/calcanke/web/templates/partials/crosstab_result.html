@@ -46,13 +46,13 @@
             <button type="button" id="chart-toggle-btn"
                     class="px-4 py-2 text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 border border-gray-300 rounded-lg transition duration-200"
                     onclick="toggleChart()">
-                <span id="chart-toggle-text">グラフを表示</span>
+                <span id="chart-toggle-text">グラフを非表示</span>
             </button>
         </div>
     </div>
 
     <!-- グラフエリア -->
-    <div id="chart-area" class="hidden border border-gray-200 rounded-lg p-4 bg-white">
+    <div id="chart-area" class="border border-gray-200 rounded-lg p-4 bg-white">
         <canvas id="crosstab-chart"></canvas>
     </div>
 
@@ -271,5 +271,8 @@ function showToast(message, isSuccess) {
         toast.classList.add('hidden');
     }, 2000);
 }
+
+// 初期表示時にグラフを描画
+renderChart();
 </script>
 {{end}}
