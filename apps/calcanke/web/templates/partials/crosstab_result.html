@@ -112,6 +112,13 @@
 // グラフ表示モード（グローバル変数）
 window.chartMode = 'count'; // デフォルトは件数
 
+// グラフソート状態（グローバル変数）
+window.chartSortState = {
+    sortedBy: null,        // ソート中のY軸項目名（null=未ソート）
+    sortDirection: null,   // 'asc'（昇順）/ 'desc'（降順）/ null（元の順序）
+    originalData: null     // 元のデータ
+};
+
 // グラフモードを切り替え
 function switchChartMode(mode) {
     window.chartMode = mode;
@@ -170,6 +177,40 @@ function toggleChart() {
     }
 }
 
+// データをY軸の値でソートする
+function sortChartData(pivotData, yValue, direction) {
+    if (!direction) {
+        // ソートなし - 元の順序に戻す
+        return window.chartSortState.originalData ?
+            JSON.parse(JSON.stringify(window.chartSortState.originalData)) :
+            pivotData;
+    }
+
+    // データをコピー
+    const sortedData = JSON.parse(JSON.stringify(pivotData));
+
+    // X軸の値とそのY軸の値のペアを作成
+    const pairs = sortedData.XValues.map(xValue => {
+        const cell = sortedData.Matrix[xValue] && sortedData.Matrix[xValue][yValue];
+        const value = cell && cell.Exists ? cell.Count : 0;
+        return { xValue: xValue, sortValue: value };
+    });
+
+    // ソート
+    pairs.sort((a, b) => {
+        if (direction === 'asc') {
+            return a.sortValue - b.sortValue;
+        } else {
+            return b.sortValue - a.sortValue;
+        }
+    });
+
+    // ソートされた順序でX軸の値を更新
+    sortedData.XValues = pairs.map(p => p.xValue);
+
+    return sortedData;
+}
+
 // グラフを描画
 function renderChart() {
     const ctx = document.getElementById('crosstab-chart');
@@ -181,7 +222,17 @@ function renderChart() {
     }
 
     // ピボットデータを取得（Goテンプレートから）
-    const pivotData = {{.PivotJSON}};
+    let pivotData = {{.PivotJSON}};
+
+    // 初回の場合、元データを保存
+    if (!window.chartSortState.originalData) {
+        window.chartSortState.originalData = JSON.parse(JSON.stringify(pivotData));
+    }
+
+    // ソートが指定されている場合、データをソート
+    if (window.chartSortState.sortedBy && window.chartSortState.sortDirection) {
+        pivotData = sortChartData(pivotData, window.chartSortState.sortedBy, window.chartSortState.sortDirection);
+    }
 
     // X軸の項目数に応じてキャンバスの高さを動的に設定
     // 1項目あたり40px + 余白（凡例、タイトルなど）で200px
@@ -285,6 +336,63 @@ function renderChart() {
                 legend: {
                     display: true,
                     position: 'top',
+                    onClick: function(e, legendItem, legend) {
+                        // 凡例クリック時のソート処理
+                        const yValue = legendItem.text.replace(/ [▲▼]$/, ''); // インジケータを除去
+
+                        // ソート状態を更新
+                        if (window.chartSortState.sortedBy === yValue) {
+                            // 同じ項目をクリック: 昇順 → 降順 → なし
+                            if (window.chartSortState.sortDirection === 'asc') {
+                                window.chartSortState.sortDirection = 'desc';
+                            } else if (window.chartSortState.sortDirection === 'desc') {
+                                window.chartSortState.sortedBy = null;
+                                window.chartSortState.sortDirection = null;
+                            }
+                        } else {
+                            // 別の項目をクリック: 昇順から開始
+                            window.chartSortState.sortedBy = yValue;
+                            window.chartSortState.sortDirection = 'asc';
+                        }
+
+                        // グラフを再描画
+                        renderChart();
+                    },
+                    labels: {
+                        generateLabels: function(chart) {
+                            const data = chart.data;
+                            if (!data.datasets.length) return [];
+
+                            return data.datasets.map((dataset, i) => {
+                                const label = dataset.label || '';
+                                const sortState = window.chartSortState;
+
+                                // ソートインジケータを追加
+                                let displayLabel = label;
+                                if (sortState.sortedBy === label) {
+                                    if (sortState.sortDirection === 'asc') {
+                                        displayLabel += ' ▲';
+                                    } else if (sortState.sortDirection === 'desc') {
+                                        displayLabel += ' ▼';
+                                    }
+                                }
+
+                                return {
+                                    text: displayLabel,
+                                    fillStyle: dataset.backgroundColor,
+                                    hidden: false,
+                                    lineCap: dataset.borderCapStyle,
+                                    lineDash: [],
+                                    lineDashOffset: 0,
+                                    lineJoin: dataset.borderJoinStyle,
+                                    lineWidth: dataset.borderWidth,
+                                    strokeStyle: dataset.borderColor,
+                                    pointStyle: 'rect',
+                                    datasetIndex: i
+                                };
+                            });
+                        }
+                    }
                 },
                 tooltip: {
                     callbacks: {
@@ -411,6 +519,13 @@ function showToast(message, isSuccess) {
 document.body.addEventListener('htmx:afterSettle', function(event) {
     // 集計結果が更新された場合のみ
     if (event.detail.target.id === 'result-area') {
+        // ソート状態をリセット（新しいデータが読み込まれたため）
+        window.chartSortState = {
+            sortedBy: null,
+            sortDirection: null,
+            originalData: null
+        };
+
         // URLパラメータからグラフ表示状態を取得（デフォルトは表示）
         const params = new URLSearchParams(window.location.search);
         const shouldShowChart = params.get('chart') === '1' || params.get('chart') === null;
