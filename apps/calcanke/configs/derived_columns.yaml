@@ -113,3 +113,246 @@ derived_columns:
 
     parameters:
       separator: "|||"  # 結合時のセパレータ（デフォルト: "|||"）
+
+  # 東京23区
+  - name: "東京23区"
+    description: "東京23区を区ごとに判定（千代田区、中央区、港区、新宿区...）"
+    calculation_type: "rules"
+    source_columns:
+      - "都道府県"
+      - "市区町村"
+
+    rules:
+      # 千代田区
+      - label: "千代田区"
+        conditions:
+          - column: "都道府県"
+            operator: "equals"
+            value: "東京都"
+          - column: "市区町村"
+            operator: "starts_with"
+            value: "千代田区"
+
+      # 中央区
+      - label: "中央区"
+        conditions:
+          - column: "都道府県"
+            operator: "equals"
+            value: "東京都"
+          - column: "市区町村"
+            operator: "starts_with"
+            value: "中央区"
+
+      # 港区
+      - label: "港区"
+        conditions:
+          - column: "都道府県"
+            operator: "equals"
+            value: "東京都"
+          - column: "市区町村"
+            operator: "starts_with"
+            value: "港区"
+
+      # 新宿区
+      - label: "新宿区"
+        conditions:
+          - column: "都道府県"
+            operator: "equals"
+            value: "東京都"
+          - column: "市区町村"
+            operator: "starts_with"
+            value: "新宿区"
+
+      # 文京区
+      - label: "文京区"
+        conditions:
+          - column: "都道府県"
+            operator: "equals"
+            value: "東京都"
+          - column: "市区町村"
+            operator: "starts_with"
+            value: "文京区"
+
+      # 台東区
+      - label: "台東区"
+        conditions:
+          - column: "都道府県"
+            operator: "equals"
+            value: "東京都"
+          - column: "市区町村"
+            operator: "starts_with"
+            value: "台東区"
+
+      # 墨田区
+      - label: "墨田区"
+        conditions:
+          - column: "都道府県"
+            operator: "equals"
+            value: "東京都"
+          - column: "市区町村"
+            operator: "starts_with"
+            value: "墨田区"
+
+      # 江東区
+      - label: "江東区"
+        conditions:
+          - column: "都道府県"
+            operator: "equals"
+            value: "東京都"
+          - column: "市区町村"
+            operator: "starts_with"
+            value: "江東区"
+
+      # 品川区
+      - label: "品川区"
+        conditions:
+          - column: "都道府県"
+            operator: "equals"
+            value: "東京都"
+          - column: "市区町村"
+            operator: "starts_with"
+            value: "品川区"
+
+      # 目黒区
+      - label: "目黒区"
+        conditions:
+          - column: "都道府県"
+            operator: "equals"
+            value: "東京都"
+          - column: "市区町村"
+            operator: "starts_with"
+            value: "目黒区"
+
+      # 大田区
+      - label: "大田区"
+        conditions:
+          - column: "都道府県"
+            operator: "equals"
+            value: "東京都"
+          - column: "市区町村"
+            operator: "starts_with"
+            value: "大田区"
+
+      # 世田谷区
+      - label: "世田谷区"
+        conditions:
+          - column: "都道府県"
+            operator: "equals"
+            value: "東京都"
+          - column: "市区町村"
+            operator: "starts_with"
+            value: "世田谷区"
+
+      # 渋谷区
+      - label: "渋谷区"
+        conditions:
+          - column: "都道府県"
+            operator: "equals"
+            value: "東京都"
+          - column: "市区町村"
+            operator: "starts_with"
+            value: "渋谷区"
+
+      # 中野区
+      - label: "中野区"
+        conditions:
+          - column: "都道府県"
+            operator: "equals"
+            value: "東京都"
+          - column: "市区町村"
+            operator: "starts_with"
+            value: "中野区"
+
+      # 杉並区
+      - label: "杉並区"
+        conditions:
+          - column: "都道府県"
+            operator: "equals"
+            value: "東京都"
+          - column: "市区町村"
+            operator: "starts_with"
+            value: "杉並区"
+
+      # 豊島区
+      - label: "豊島区"
+        conditions:
+          - column: "都道府県"
+            operator: "equals"
+            value: "東京都"
+          - column: "市区町村"
+            operator: "starts_with"
+            value: "豊島区"
+
+      # 北区
+      - label: "北区"
+        conditions:
+          - column: "都道府県"
+            operator: "equals"
+            value: "東京都"
+          - column: "市区町村"
+            operator: "starts_with"
+            value: "北区"
+
+      # 荒川区
+      - label: "荒川区"
+        conditions:
+          - column: "都道府県"
+            operator: "equals"
+            value: "東京都"
+          - column: "市区町村"
+            operator: "starts_with"
+            value: "荒川区"
+
+      # 板橋区
+      - label: "板橋区"
+        conditions:
+          - column: "都道府県"
+            operator: "equals"
+            value: "東京都"
+          - column: "市区町村"
+            operator: "starts_with"
+            value: "板橋区"
+
+      # 練馬区
+      - label: "練馬区"
+        conditions:
+          - column: "都道府県"
+            operator: "equals"
+            value: "東京都"
+          - column: "市区町村"
+            operator: "starts_with"
+            value: "練馬区"
+
+      # 足立区
+      - label: "足立区"
+        conditions:
+          - column: "都道府県"
+            operator: "equals"
+            value: "東京都"
+          - column: "市区町村"
+            operator: "starts_with"
+            value: "足立区"
+
+      # 葛飾区
+      - label: "葛飾区"
+        conditions:
+          - column: "都道府県"
+            operator: "equals"
+            value: "東京都"
+          - column: "市区町村"
+            operator: "starts_with"
+            value: "葛飾区"
+
+      # 江戸川区
+      - label: "江戸川区"
+        conditions:
+          - column: "都道府県"
+            operator: "equals"
+            value: "東京都"
+          - column: "市区町村"
+            operator: "starts_with"
+            value: "江戸川区"
+
+      # その他
+      - label: "その他"
+        is_default: true
