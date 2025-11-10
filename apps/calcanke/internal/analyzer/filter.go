@@ -15,16 +15,16 @@ type FilterConfig struct {
 
 // Filter は1つのフィルタ定義
 type Filter struct {
-	Name        string            `yaml:"name"`
-	Description string            `yaml:"description"`
-	Conditions  []FilterCondition `yaml:"conditions"`
+	Name        string            `yaml:"name" json:"name"`
+	Description string            `yaml:"description" json:"description"`
+	Conditions  []FilterCondition `yaml:"conditions" json:"conditions"`
 }
 
 // FilterCondition はフィルタ条件
 type FilterCondition struct {
-	Column        string   `yaml:"column"`
-	IncludeValues []string `yaml:"include_values"` // この値のみ含む
-	ExcludeValues []string `yaml:"exclude_values"` // この値を除外
+	Column        string   `yaml:"column" json:"column"`
+	IncludeValues []string `yaml:"include_values" json:"include_values"` // この値のみ含む
+	ExcludeValues []string `yaml:"exclude_values" json:"exclude_values"` // この値を除外
 }
 
 // LoadFilters は設定ファイルからフィルタを読み込む

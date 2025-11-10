@@ -15,27 +15,27 @@ type DerivedColumnConfig struct {
 
 // DerivedColumn は1つの派生列の定義
 type DerivedColumn struct {
-	Name            string                 `yaml:"name"`
-	Description     string                 `yaml:"description"`
-	SourceColumns   []string               `yaml:"source_columns"`
-	CalculationType string                 `yaml:"calculation_type"` // "rules" または "grade_from_birthdate"
-	Parameters      map[string]interface{} `yaml:"parameters"`       // 計算パラメータ
-	Rules           []Rule                 `yaml:"rules"`            // calculation_type="rules"の場合
+	Name            string                 `yaml:"name" json:"name"`
+	Description     string                 `yaml:"description" json:"description"`
+	SourceColumns   []string               `yaml:"source_columns" json:"source_columns"`
+	CalculationType string                 `yaml:"calculation_type" json:"calculation_type"` // "rules" または "grade_from_birthdate"
+	Parameters      map[string]interface{} `yaml:"parameters" json:"parameters"`             // 計算パラメータ
+	Rules           []Rule                 `yaml:"rules" json:"rules"`                       // calculation_type="rules"の場合
 }
 
 // Rule は分類ルール
 type Rule struct {
-	Label      string      `yaml:"label"`
-	Conditions []Condition `yaml:"conditions"`
-	IsDefault  bool        `yaml:"is_default"`
+	Label      string      `yaml:"label" json:"label"`
+	Conditions []Condition `yaml:"conditions" json:"conditions"`
+	IsDefault  bool        `yaml:"is_default" json:"is_default"`
 }
 
 // Condition は条件
 type Condition struct {
-	Column   string   `yaml:"column"`
-	Operator string   `yaml:"operator"`
-	Value    string   `yaml:"value"`
-	Values   []string `yaml:"values"`
+	Column   string   `yaml:"column" json:"column"`
+	Operator string   `yaml:"operator" json:"operator"`
+	Value    string   `yaml:"value" json:"value"`
+	Values   []string `yaml:"values" json:"values"`
 }
 
 // LoadDerivedColumns は設定ファイルから派生列の定義を読み込む
