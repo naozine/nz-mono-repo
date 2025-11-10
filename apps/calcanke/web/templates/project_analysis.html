@@ -727,8 +727,113 @@
                     document.getElementById('derived-column-name').value = column.name || '';
                     document.getElementById('derived-column-description').value = column.description || '';
                     document.getElementById('derived-column-calc-type').value = column.calculation_type || 'rules';
+
+                    // フォームを更新してから、タイプ別のデータを読み込む
                     updateDerivedColumnFormType();
-                    // タイプ別のデータ読み込みは次のステップで実装
+
+                    // 少し待ってからデータを読み込む（DOM更新を待つ）
+                    await new Promise(resolve => setTimeout(resolve, 100));
+
+                    // タイプ別のデータ読み込み
+                    const calcType = column.calculation_type || 'rules';
+                    switch (calcType) {
+                        case 'merge':
+                            // セパレータを設定
+                            if (column.parameters && column.parameters.separator) {
+                                document.getElementById('merge-separator').value = column.parameters.separator;
+                            }
+                            // チェックボックスを設定
+                            if (column.source_columns && column.source_columns.length > 0) {
+                                column.source_columns.forEach(colName => {
+                                    const checkbox = Array.from(document.querySelectorAll('.merge-column-checkbox'))
+                                        .find(cb => cb.value === colName);
+                                    if (checkbox) {
+                                        checkbox.checked = true;
+                                    }
+                                });
+                            }
+                            break;
+
+                        case 'grade_from_birthdate':
+                            if (column.parameters) {
+                                if (column.parameters.target_year) {
+                                    document.getElementById('grade-target-year').value = column.parameters.target_year;
+                                }
+                                if (column.parameters.birthdate_column) {
+                                    document.getElementById('grade-birthdate-column').value = column.parameters.birthdate_column;
+                                }
+                            }
+                            break;
+
+                        case 'school_type_from_birthdate':
+                            if (column.parameters) {
+                                if (column.parameters.target_year) {
+                                    document.getElementById('school-target-year').value = column.parameters.target_year;
+                                }
+                                if (column.parameters.birthdate_column) {
+                                    document.getElementById('school-birthdate-column').value = column.parameters.birthdate_column;
+                                }
+                                if (column.parameters.labels) {
+                                    const labels = column.parameters.labels;
+                                    if (labels.elementary) {
+                                        document.getElementById('school-label-elementary').value = labels.elementary;
+                                    }
+                                    if (labels.junior_high) {
+                                        document.getElementById('school-label-junior').value = labels.junior_high;
+                                    }
+                                    if (labels.other) {
+                                        document.getElementById('school-label-other').value = labels.other;
+                                    }
+                                }
+                            }
+                            break;
+
+                        case 'rules':
+                            // 既存のルールをクリア
+                            const rulesList = document.getElementById('rules-list');
+                            rulesList.innerHTML = '';
+
+                            // ルールを追加
+                            if (column.rules && column.rules.length > 0) {
+                                column.rules.forEach(rule => {
+                                    addRule();
+                                    const ruleElements = document.querySelectorAll('#rules-list > div[id^="rule-"]');
+                                    const lastRule = ruleElements[ruleElements.length - 1];
+
+                                    // ラベルとデフォルトフラグを設定
+                                    lastRule.querySelector('.rule-label').value = rule.label || '';
+                                    lastRule.querySelector('.rule-is-default').checked = rule.is_default || false;
+
+                                    // 条件をクリアして追加
+                                    const conditionsContainer = lastRule.querySelector('.rule-conditions');
+                                    conditionsContainer.innerHTML = '';
+
+                                    if (rule.conditions && rule.conditions.length > 0) {
+                                        rule.conditions.forEach(cond => {
+                                            const ruleId = lastRule.id;
+                                            addCondition(ruleId);
+
+                                            const condElements = conditionsContainer.querySelectorAll('div[id^="condition-"]');
+                                            const lastCond = condElements[condElements.length - 1];
+
+                                            lastCond.querySelector('.cond-column').value = cond.column || '';
+                                            lastCond.querySelector('.cond-operator').value = cond.operator || 'equals';
+
+                                            // 値を設定（配列の場合はカンマ区切りに変換）
+                                            if (cond.values) {
+                                                lastCond.querySelector('.cond-value').value = cond.values.join(', ');
+                                            } else if (cond.value) {
+                                                lastCond.querySelector('.cond-value').value = cond.value;
+                                            }
+                                        });
+                                    }
+                                });
+                            } else {
+                                // ルールがない場合は空のルールを1つ追加
+                                addRule();
+                            }
+                            break;
+                    }
                 }
             } catch (error) {
                 console.error('Failed to load derived column data:', error);
@@ -740,19 +845,118 @@
             const calcType = document.getElementById('derived-column-calc-type').value;
             const formArea = document.getElementById('derived-column-type-specific-form');
 
-            // タイプ別の詳細フォームは次のステップで実装
             switch (calcType) {
-                case 'rules':
-                    formArea.innerHTML = '<p class="text-sm text-gray-500">ルールベースの設定フォームは次のステップで実装します</p>';
-                    break;
-                case 'grade_from_birthdate':
-                    formArea.innerHTML = '<p class="text-sm text-gray-500">学年計算の設定フォームは次のステップで実装します</p>';
-                    break;
-                case 'school_type_from_birthdate':
-                    formArea.innerHTML = '<p class="text-sm text-gray-500">学校種別計算の設定フォームは次のステップで実装します</p>';
-                    break;
                 case 'merge':
-                    formArea.innerHTML = '<p class="text-sm text-gray-500">複数列結合の設定フォームは次のステップで実装します</p>';
+                    formArea.innerHTML = `
+                        <div class="p-3 bg-gray-50 rounded border border-gray-200">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                結合する列（複数選択可）
+                            </label>
+                            <div id="merge-columns-list" class="space-y-1 text-sm">
+                                <p class="text-gray-500">列情報を読み込み中...</p>
+                            </div>
+                            <div class="mt-3">
+                                <label class="block text-xs font-medium text-gray-600 mb-1">
+                                    セパレータ（省略可、デフォルト: |||）
+                                </label>
+                                <input type="text" id="merge-separator"
+                                       class="w-full px-2 py-1 text-sm border border-gray-300 rounded"
+                                       placeholder="|||">
+                            </div>
+                        </div>
+                    `;
+                    loadColumnsForMerge();
+                    break;
+
+                case 'grade_from_birthdate':
+                    formArea.innerHTML = `
+                        <div class="p-3 bg-gray-50 rounded border border-gray-200 space-y-3">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">
+                                    対象年度
+                                </label>
+                                <input type="number" id="grade-target-year"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded"
+                                       value="2025" min="2000" max="2100">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">
+                                    生年月日列名
+                                </label>
+                                <input type="text" id="grade-birthdate-column"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded"
+                                       value="生年月日" placeholder="生年月日">
+                            </div>
+                        </div>
+                    `;
+                    break;
+
+                case 'school_type_from_birthdate':
+                    formArea.innerHTML = `
+                        <div class="p-3 bg-gray-50 rounded border border-gray-200 space-y-3">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">
+                                    対象年度
+                                </label>
+                                <input type="number" id="school-target-year"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded"
+                                       value="2025" min="2000" max="2100">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">
+                                    生年月日列名
+                                </label>
+                                <input type="text" id="school-birthdate-column"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded"
+                                       value="生年月日" placeholder="生年月日">
+                            </div>
+                            <div class="grid grid-cols-3 gap-2">
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-600 mb-1">
+                                        小学生ラベル
+                                    </label>
+                                    <input type="text" id="school-label-elementary"
+                                           class="w-full px-2 py-1 text-sm border border-gray-300 rounded"
+                                           value="小学生" placeholder="小学生">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-600 mb-1">
+                                        中学生ラベル
+                                    </label>
+                                    <input type="text" id="school-label-junior"
+                                           class="w-full px-2 py-1 text-sm border border-gray-300 rounded"
+                                           value="中学生" placeholder="中学生">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-600 mb-1">
+                                        その他ラベル
+                                    </label>
+                                    <input type="text" id="school-label-other"
+                                           class="w-full px-2 py-1 text-sm border border-gray-300 rounded"
+                                           value="その他" placeholder="その他">
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    break;
+
+                case 'rules':
+                    formArea.innerHTML = `
+                        <div class="p-3 bg-gray-50 rounded border border-gray-200">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                ルール（条件と分類）
+                            </label>
+                            <div id="rules-list" class="space-y-2">
+                                <!-- ルールがここに表示される -->
+                            </div>
+                            <button type="button" onclick="addRule()"
+                                    class="mt-2 px-3 py-1 text-sm text-blue-600 hover:bg-blue-50 rounded border border-blue-300">
+                                + ルールを追加
+                            </button>
+                        </div>
+                    `;
+                    // 初期状態で1つルールを追加
+                    setTimeout(() => addRule(), 0);
                     break;
             }
         }
@@ -767,7 +971,7 @@
                 const description = document.getElementById('derived-column-description').value;
                 const calcType = document.getElementById('derived-column-calc-type').value;
 
-                // 基本的なデータ構造（タイプ別の詳細は次のステップで実装）
+                // 基本的なデータ構造
                 const data = {
                     name: name,
                     description: description,
@@ -777,7 +981,91 @@
                     rules: []
                 };
 
+                // タイプ別のデータを収集
                 try {
+                    switch (calcType) {
+                        case 'merge':
+                            // チェックされた列を収集
+                            const checkedColumns = Array.from(document.querySelectorAll('.merge-column-checkbox:checked'))
+                                .map(cb => cb.value);
+                            data.source_columns = checkedColumns;
+                            // セパレータを収集
+                            const separator = document.getElementById('merge-separator').value.trim();
+                            if (separator) {
+                                data.parameters.separator = separator;
+                            }
+                            break;
+
+                        case 'grade_from_birthdate':
+                            const gradeYear = parseInt(document.getElementById('grade-target-year').value);
+                            const gradeBirthdateCol = document.getElementById('grade-birthdate-column').value.trim();
+                            data.parameters.target_year = gradeYear;
+                            data.parameters.birthdate_column = gradeBirthdateCol;
+                            break;
+
+                        case 'school_type_from_birthdate':
+                            const schoolYear = parseInt(document.getElementById('school-target-year').value);
+                            const schoolBirthdateCol = document.getElementById('school-birthdate-column').value.trim();
+                            const elemLabel = document.getElementById('school-label-elementary').value.trim();
+                            const juniorLabel = document.getElementById('school-label-junior').value.trim();
+                            const otherLabel = document.getElementById('school-label-other').value.trim();
+
+                            data.parameters.target_year = schoolYear;
+                            data.parameters.birthdate_column = schoolBirthdateCol;
+                            data.parameters.labels = {
+                                elementary: elemLabel || '小学生',
+                                junior_high: juniorLabel || '中学生',
+                                other: otherLabel || 'その他'
+                            };
+                            break;
+
+                        case 'rules':
+                            // 全てのルールを収集
+                            const ruleElements = document.querySelectorAll('#rules-list > div[id^="rule-"]');
+                            const rules = [];
+
+                            ruleElements.forEach(ruleEl => {
+                                const labelInput = ruleEl.querySelector('.rule-label');
+                                const isDefaultCheckbox = ruleEl.querySelector('.rule-is-default');
+                                const conditionElements = ruleEl.querySelectorAll('.rule-conditions > div');
+
+                                const label = labelInput.value.trim();
+                                if (!label) return; // ラベルが空なら無視
+
+                                const conditions = [];
+                                conditionElements.forEach(condEl => {
+                                    const column = condEl.querySelector('.cond-column').value.trim();
+                                    const operator = condEl.querySelector('.cond-operator').value;
+                                    const value = condEl.querySelector('.cond-value').value.trim();
+
+                                    if (column && value) {
+                                        const condition = {
+                                            column: column,
+                                            operator: operator
+                                        };
+
+                                        // operatorに応じて値を配列または文字列で格納
+                                        if (operator === 'in' || operator === 'starts_with_any') {
+                                            condition.values = value.split(',').map(v => v.trim());
+                                        } else {
+                                            condition.value = value;
+                                        }
+
+                                        conditions.push(condition);
+                                    }
+                                });
+
+                                rules.push({
+                                    label: label,
+                                    conditions: conditions,
+                                    is_default: isDefaultCheckbox.checked
+                                });
+                            });
+
+                            data.rules = rules;
+                            break;
+                    }
+
                     const url = index !== ''
                         ? `/api/projects/${PROJECT_ID}/derived-columns/${index}`
                         : `/api/projects/${PROJECT_ID}/derived-columns`;
@@ -797,11 +1085,12 @@
                         htmx.trigger('#column-selector', 'load');
                         alert('派生列を保存しました');
                     } else {
-                        alert('保存に失敗しました');
+                        const errorText = await response.text();
+                        alert('保存に失敗しました: ' + errorText);
                     }
                 } catch (error) {
                     console.error('Failed to save derived column:', error);
-                    alert('保存に失敗しました');
+                    alert('保存に失敗しました: ' + error.message);
                 }
             });
         });
@@ -982,6 +1271,103 @@
                 }
             });
         });
+
+        // merge用に列リストを読み込む
+        async function loadColumnsForMerge() {
+            try {
+                const response = await fetch(`/api/projects/${PROJECT_ID}/columns`);
+                const columns = await response.json();
+
+                const listEl = document.getElementById('merge-columns-list');
+                listEl.innerHTML = columns.map((col, index) => `
+                    <label class="flex items-center">
+                        <input type="checkbox" class="merge-column-checkbox mr-2" value="${escapeHtml(col.Name)}">
+                        <span>${escapeHtml(col.Name)}</span>
+                    </label>
+                `).join('');
+            } catch (error) {
+                console.error('Failed to load columns:', error);
+            }
+        }
+
+        // ルールを追加（rulesタイプ用）
+        let ruleCounter = 0;
+        function addRule() {
+            const rulesList = document.getElementById('rules-list');
+            const ruleId = `rule-${ruleCounter++}`;
+
+            const ruleHTML = `
+                <div class="p-2 bg-white rounded border border-gray-300" id="${ruleId}">
+                    <div class="flex justify-between items-start mb-2">
+                        <input type="text" class="rule-label flex-1 px-2 py-1 text-sm border border-gray-300 rounded mr-2"
+                               placeholder="ラベル（例: 東京23区）" required>
+                        <button type="button" onclick="removeRule('${ruleId}')"
+                                class="text-red-600 hover:text-red-700 text-sm">
+                            削除
+                        </button>
+                    </div>
+                    <div class="rule-conditions space-y-1">
+                        <!-- 条件がここに表示される -->
+                    </div>
+                    <button type="button" onclick="addCondition('${ruleId}')"
+                            class="mt-1 px-2 py-1 text-xs text-blue-600 hover:bg-blue-50 rounded border border-blue-300">
+                        + 条件を追加
+                    </button>
+                    <label class="flex items-center mt-2 text-xs">
+                        <input type="checkbox" class="rule-is-default mr-1">
+                        <span>デフォルトルール（条件に一致しない場合）</span>
+                    </label>
+                </div>
+            `;
+
+            rulesList.insertAdjacentHTML('beforeend', ruleHTML);
+        }
+
+        // ルールを削除
+        function removeRule(ruleId) {
+            const element = document.getElementById(ruleId);
+            if (element) {
+                element.remove();
+            }
+        }
+
+        // 条件を追加（ルール内）
+        let conditionCounter = 0;
+        function addCondition(ruleId) {
+            const rule = document.getElementById(ruleId);
+            const conditionsContainer = rule.querySelector('.rule-conditions');
+            const conditionId = `condition-${conditionCounter++}`;
+
+            const conditionHTML = `
+                <div class="flex items-center gap-1 text-xs" id="${conditionId}">
+                    <input type="text" class="cond-column flex-1 px-2 py-1 border border-gray-300 rounded"
+                           placeholder="列名" required>
+                    <select class="cond-operator px-2 py-1 border border-gray-300 rounded">
+                        <option value="equals">等しい</option>
+                        <option value="starts_with">で始まる</option>
+                        <option value="starts_with_any">いずれかで始まる</option>
+                        <option value="contains">を含む</option>
+                        <option value="in">いずれかに一致</option>
+                    </select>
+                    <input type="text" class="cond-value flex-1 px-2 py-1 border border-gray-300 rounded"
+                           placeholder="値（複数の場合はカンマ区切り）" required>
+                    <button type="button" onclick="removeCondition('${conditionId}')"
+                            class="text-red-600 hover:text-red-700">
+                        ×
+                    </button>
+                </div>
+            `;
+
+            conditionsContainer.insertAdjacentHTML('beforeend', conditionHTML);
+        }
+
+        // 条件を削除
+        function removeCondition(conditionId) {
+            const element = document.getElementById(conditionId);
+            if (element) {
+                element.remove();
+            }
+        }
 
         // HTMLエスケープ
         function escapeHtml(text) {

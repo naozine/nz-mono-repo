@@ -95,6 +95,11 @@ func (dc *DerivedColumn) GenerateCaseExpression() string {
 
 // generateRuleBasedExpression はルールベースのCASE式を生成
 func (dc *DerivedColumn) generateRuleBasedExpression() string {
+	// ルールが空の場合はNULLを返す
+	if len(dc.Rules) == 0 {
+		return "NULL"
+	}
+
 	var cases []string
 
 	for _, rule := range dc.Rules {
@@ -127,6 +132,11 @@ func (dc *DerivedColumn) generateRuleBasedExpression() string {
 			elseClause = fmt.Sprintf("ELSE '%s'", rule.Label)
 			break
 		}
+	}
+
+	// WHEN句がない場合もNULLを返す
+	if len(cases) == 0 && elseClause == "" {
+		return "NULL"
 	}
 
 	// CASE式を組み立て
