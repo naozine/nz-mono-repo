@@ -921,8 +921,8 @@
                 columnSelect.innerHTML = '<option value="">列を選択してください</option>';
                 columns.forEach(col => {
                     const option = document.createElement('option');
-                    option.value = col.name;
-                    option.textContent = col.name;
+                    option.value = col.Name;
+                    option.textContent = col.Name;
                     columnSelect.appendChild(option);
                 });
             } catch (error) {
