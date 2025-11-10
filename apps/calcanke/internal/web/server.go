@@ -73,6 +73,10 @@ func NewServer(dbPath, table, projectsDir string) *echo.Echo {
 	e.PUT("/api/projects/:id/derived-columns/:index", projectHandler.UpdateDerivedColumn)
 	e.DELETE("/api/projects/:id/derived-columns/:index", projectHandler.DeleteDerivedColumn)
 
+	// ルーティング - 派生列テンプレート
+	e.GET("/api/projects/:id/derived-columns/templates", projectHandler.GetDerivedColumnTemplates)
+	e.POST("/api/projects/:id/derived-columns/import", projectHandler.ImportDerivedColumnTemplates)
+
 	// ルーティング - フィルタ管理
 	e.GET("/api/projects/:id/filters-config", projectHandler.GetFiltersConfig)
 	e.POST("/api/projects/:id/filters-config", projectHandler.AddFilterConfig)

@@ -496,6 +496,92 @@ func (h *ProjectHandler) DeleteDerivedColumn(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]string{"message": "Derived column deleted successfully"})
 }
 
+// GetDerivedColumnTemplates はテンプレートライブラリから派生列テンプレートを取得
+func (h *ProjectHandler) GetDerivedColumnTemplates(c echo.Context) error {
+	// configs/derived_columns.yaml からテンプレートを読み込む
+	templatePath := filepath.Join("configs", "derived_columns.yaml")
+	templates, err := analyzer.LoadDerivedColumns(templatePath)
+	if err != nil {
+		// ファイルがない場合は空配列を返す
+		return c.JSON(http.StatusOK, []analyzer.DerivedColumn{})
+	}
+
+	return c.JSON(http.StatusOK, templates)
+}
+
+// ImportDerivedColumnTemplates はテンプレートライブラリから派生列をインポート
+func (h *ProjectHandler) ImportDerivedColumnTemplates(c echo.Context) error {
+	id := c.Param("id")
+
+	p, err := h.repo.FindByID(id)
+	if err != nil || p == nil {
+		return c.JSON(http.StatusNotFound, map[string]string{"error": "Project not found"})
+	}
+
+	// リクエストボディから選択されたテンプレートのインデックスを取得
+	var requestBody struct {
+		Indices []int `json:"indices"`
+	}
+	if err := c.Bind(&requestBody); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request body"})
+	}
+
+	// configs/derived_columns.yaml からテンプレートを読み込む
+	templatePath := filepath.Join("configs", "derived_columns.yaml")
+	templates, err := analyzer.LoadDerivedColumns(templatePath)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to load templates"})
+	}
+
+	// 既存の派生列を読み込み
+	derivedColumnsPath := p.GetDerivedColumnsPath(h.projectDir)
+	columns, err := analyzer.LoadDerivedColumns(derivedColumnsPath)
+	if err != nil {
+		columns = []analyzer.DerivedColumn{}
+	}
+
+	// 既存の列名マップを作成
+	existingNames := make(map[string]bool)
+	for _, col := range columns {
+		existingNames[col.Name] = true
+	}
+
+	// 選択されたテンプレートをインポート
+	importedCount := 0
+	for _, idx := range requestBody.Indices {
+		if idx < 0 || idx >= len(templates) {
+			continue
+		}
+
+		template := templates[idx]
+		originalName := template.Name
+
+		// 名前の重複チェック（重複している場合は (2), (3)... を付ける）
+		newName := originalName
+		counter := 2
+		for existingNames[newName] {
+			newName = fmt.Sprintf("%s (%d)", originalName, counter)
+			counter++
+		}
+		template.Name = newName
+		existingNames[newName] = true
+
+		// 派生列を追加
+		columns = append(columns, template)
+		importedCount++
+	}
+
+	// 保存
+	if err := analyzer.SaveDerivedColumns(derivedColumnsPath, columns); err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to save derived columns"})
+	}
+
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"message":        "Templates imported successfully",
+		"imported_count": importedCount,
+	})
+}
+
 // GetFiltersConfig はフィルタ設定の一覧を取得
 func (h *ProjectHandler) GetFiltersConfig(c echo.Context) error {
 	id := c.Param("id")
