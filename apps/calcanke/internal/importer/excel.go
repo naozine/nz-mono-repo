@@ -46,7 +46,8 @@ func ImportExcel(excelPath, dbPath, tableName string) error {
 	}
 
 	// Excelファイルからテーブルを作成
-	createSQL := fmt.Sprintf("CREATE TABLE %s AS SELECT * FROM st_read(?)", tableName)
+	// open_options=['HEADERS=FORCE'] で1行目をヘッダーとして扱う
+	createSQL := fmt.Sprintf("CREATE TABLE %s AS SELECT * FROM st_read(?, open_options=['HEADERS=FORCE'])", tableName)
 	if _, err := db.Exec(createSQL, absPath); err != nil {
 		return fmt.Errorf("failed to create table from excel: %w", err)
 	}
