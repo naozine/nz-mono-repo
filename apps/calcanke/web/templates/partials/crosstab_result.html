@@ -178,7 +178,7 @@ function toggleChart() {
 }
 
 // データをY軸の値でソートする
-function sortChartData(pivotData, yValue, direction) {
+function sortChartData(pivotData, yValue, direction, chartMode) {
     if (!direction) {
         // ソートなし - 元の順序に戻す
         return window.chartSortState.originalData ?
@@ -192,8 +192,27 @@ function sortChartData(pivotData, yValue, direction) {
     // X軸の値とそのY軸の値のペアを作成
     const pairs = sortedData.XValues.map(xValue => {
         const cell = sortedData.Matrix[xValue] && sortedData.Matrix[xValue][yValue];
-        const value = cell && cell.Exists ? cell.Count : 0;
-        return { xValue: xValue, sortValue: value };
+        let sortValue = 0;
+
+        if (cell && cell.Exists) {
+            if (chartMode === 'count') {
+                // 件数モード
+                sortValue = cell.Count;
+            } else if (chartMode === 'row-percent') {
+                // 行比率モード（各X値ごとに100%）
+                let rowTotal = 0;
+                sortedData.YValues.forEach(y => {
+                    const c = sortedData.Matrix[xValue] && sortedData.Matrix[xValue][y];
+                    if (c && c.Exists) rowTotal += c.Count;
+                });
+                sortValue = rowTotal > 0 ? (cell.Count / rowTotal * 100) : 0;
+            } else if (chartMode === 'total-percent') {
+                // 全体比率モード
+                sortValue = cell.Percentage;
+            }
+        }
+
+        return { xValue: xValue, sortValue: sortValue };
     });
 
     // ソート
@@ -231,7 +250,7 @@ function renderChart() {
 
     // ソートが指定されている場合、データをソート
     if (window.chartSortState.sortedBy && window.chartSortState.sortDirection) {
-        pivotData = sortChartData(pivotData, window.chartSortState.sortedBy, window.chartSortState.sortDirection);
+        pivotData = sortChartData(pivotData, window.chartSortState.sortedBy, window.chartSortState.sortDirection, window.chartMode);
     }
 
     // X軸の項目数に応じてキャンバスの高さを動的に設定
