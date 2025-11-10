@@ -90,8 +90,8 @@ func (h *Handler) Crosstab(c echo.Context) error {
 		return c.String(http.StatusInternalServerError, "Failed to execute crosstab: "+err.Error())
 	}
 
-	// ピボット形式のデータも生成
-	pivot := result.ToPivot()
+	// ピボット形式のデータも生成（列の値の順序を考慮）
+	pivot := result.ToPivotWithAnalyzer(a)
 
 	// ピボットデータをJSONに変換
 	pivotJSON, err := json.Marshal(pivot)

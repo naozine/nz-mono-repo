@@ -153,6 +153,18 @@ filters: []
 		return fmt.Errorf("failed to create filters.yaml: %w", err)
 	}
 
+	// column_orders.yaml
+	columnOrdersContent := `# 列の値の表示順序の定義
+# この設定ファイルで、列に含まれる値の表示順序を指定できます
+# グラフや表での表示順序が制御されます
+
+column_orders: []
+`
+	columnOrdersPath := p.GetColumnOrdersPath(h.projectDir)
+	if err := os.WriteFile(columnOrdersPath, []byte(columnOrdersContent), 0644); err != nil {
+		return fmt.Errorf("failed to create column_orders.yaml: %w", err)
+	}
+
 	return nil
 }
 
@@ -269,9 +281,10 @@ func (h *ProjectHandler) ShowAnalysis(c echo.Context) error {
 	dbPath := p.GetDuckDBPath(h.projectDir)
 	derivedColumnsPath := p.GetDerivedColumnsPath(h.projectDir)
 	filtersPath := p.GetFiltersPath(h.projectDir)
+	columnOrdersPath := p.GetColumnOrdersPath(h.projectDir)
 
 	// Analyzerを作成してテーブル情報を取得
-	a, err := analyzer.NewAnalyzerWithConfigs(dbPath, p.TableName, derivedColumnsPath, filtersPath)
+	a, err := analyzer.NewAnalyzerWithConfigs(dbPath, p.TableName, derivedColumnsPath, filtersPath, columnOrdersPath)
 	if err != nil {
 		return c.String(http.StatusInternalServerError, "Failed to initialize analyzer")
 	}
@@ -310,8 +323,9 @@ func (h *ProjectHandler) getProjectHandler(projectID string) (*Handler, error) {
 	dbPath := p.GetDuckDBPath(h.projectDir)
 	derivedColumnsPath := p.GetDerivedColumnsPath(h.projectDir)
 	filtersPath := p.GetFiltersPath(h.projectDir)
+	columnOrdersPath := p.GetColumnOrdersPath(h.projectDir)
 
-	return NewHandlerWithConfigs(dbPath, p.TableName, derivedColumnsPath, filtersPath), nil
+	return NewHandlerWithConfigs(dbPath, p.TableName, derivedColumnsPath, filtersPath, columnOrdersPath), nil
 }
 
 // GetProjectColumns はプロジェクトのカラム一覧を返す

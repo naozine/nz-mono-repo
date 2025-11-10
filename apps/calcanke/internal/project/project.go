@@ -62,3 +62,8 @@ func (p *Project) GetDerivedColumnsPath(baseDir string) string {
 func (p *Project) GetFiltersPath(baseDir string) string {
 	return p.GetProjectDir(baseDir) + "/filters.yaml"
 }
+
+// GetColumnOrdersPath は列の値の表示順序設定ファイルのパスを返す
+func (p *Project) GetColumnOrdersPath(baseDir string) string {
+	return p.GetProjectDir(baseDir) + "/column_orders.yaml"
+}

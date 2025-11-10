@@ -9,21 +9,23 @@ import (
 
 // Analyzer はデータ分析を実行
 type Analyzer struct {
-	db             *sql.DB
-	DBPath         string
-	Table          string
-	DerivedColumns []DerivedColumn
-	derivedColsMap map[string]*DerivedColumn // 名前から派生列を引くマップ
-	Filters        []Filter                  // 利用可能なフィルタ
+	db              *sql.DB
+	DBPath          string
+	Table           string
+	DerivedColumns  []DerivedColumn
+	derivedColsMap  map[string]*DerivedColumn // 名前から派生列を引くマップ
+	Filters         []Filter                  // 利用可能なフィルタ
+	ColumnOrders    []ColumnOrder             // 列の値の表示順序
+	columnOrdersMap map[string]*ColumnOrder   // 列名から表示順序を引くマップ
 }
 
 // NewAnalyzer はAnalyzerを作成（デフォルトのconfigs/パスを使用）
 func NewAnalyzer(dbPath, table string) (*Analyzer, error) {
-	return NewAnalyzerWithConfigs(dbPath, table, "configs/derived_columns.yaml", "configs/filters.yaml")
+	return NewAnalyzerWithConfigs(dbPath, table, "configs/derived_columns.yaml", "configs/filters.yaml", "configs/column_orders.yaml")
 }
 
 // NewAnalyzerWithConfigs は設定ファイルパスを指定してAnalyzerを作成
-func NewAnalyzerWithConfigs(dbPath, table, derivedColumnsPath, filtersPath string) (*Analyzer, error) {
+func NewAnalyzerWithConfigs(dbPath, table, derivedColumnsPath, filtersPath, columnOrdersPath string) (*Analyzer, error) {
 	// DuckDB拡張機能の自動インストールを有効化
 	db, err := sql.Open("duckdb", dbPath)
 	if err != nil {
@@ -68,13 +70,28 @@ func NewAnalyzerWithConfigs(dbPath, table, derivedColumnsPath, filtersPath strin
 		filters = []Filter{}
 	}
 
+	// 列の値の表示順序を読み込み（オプショナル）
+	columnOrders, err := LoadColumnOrders(columnOrdersPath)
+	if err != nil {
+		// 設定ファイルがなくてもエラーにしない
+		columnOrders = []ColumnOrder{}
+	}
+
+	// 列の値の表示順序のマップを作成
+	columnOrdersMap := make(map[string]*ColumnOrder)
+	for i := range columnOrders {
+		columnOrdersMap[columnOrders[i].Column] = &columnOrders[i]
+	}
+
 	return &Analyzer{
-		db:             db,
-		DBPath:         dbPath,
-		Table:          table,
-		DerivedColumns: derivedCols,
-		derivedColsMap: derivedColsMap,
-		Filters:        filters,
+		db:              db,
+		DBPath:          dbPath,
+		Table:           table,
+		DerivedColumns:  derivedCols,
+		derivedColsMap:  derivedColsMap,
+		Filters:         filters,
+		ColumnOrders:    columnOrders,
+		columnOrdersMap: columnOrdersMap,
 	}, nil
 }
 
