@@ -35,3 +35,19 @@ func (h *Handler) GetColumns(c echo.Context) error {
 
 	return c.Render(http.StatusOK, "column_selector.html", data)
 }
+
+// GetColumnsJSON は列のリストをJSON形式で返す（API用）
+func (h *Handler) GetColumnsJSON(c echo.Context) error {
+	a, err := h.getAnalyzer()
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to initialize analyzer"})
+	}
+	defer a.Close()
+
+	columns, err := a.GetColumns()
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to get columns"})
+	}
+
+	return c.JSON(http.StatusOK, columns)
+}

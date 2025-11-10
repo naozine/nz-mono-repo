@@ -915,7 +915,7 @@
 
             // Load column options
             try {
-                const response = await fetch(`/api/projects/${PROJECT_ID}/columns`);
+                const response = await fetch(`/api/projects/${PROJECT_ID}/columns-json`);
                 const columns = await response.json();
 
                 columnSelect.innerHTML = '<option value="">列を選択してください</option>';
@@ -1822,7 +1822,7 @@
         // merge用に列リストを読み込む
         async function loadColumnsForMerge() {
             try {
-                const response = await fetch(`/api/projects/${PROJECT_ID}/columns`);
+                const response = await fetch(`/api/projects/${PROJECT_ID}/columns-json`);
                 const columns = await response.json();
 
                 const listEl = document.getElementById('merge-columns-list');

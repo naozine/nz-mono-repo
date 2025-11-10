@@ -62,6 +62,7 @@ func NewServer(dbPath, table, projectsDir string) *echo.Echo {
 	// ルーティング - プロジェクトごとの集計機能
 	e.GET("/projects/:id", projectHandler.ShowAnalysis)
 	e.GET("/api/projects/:id/columns", projectHandler.GetProjectColumns)
+	e.GET("/api/projects/:id/columns-json", projectHandler.GetProjectColumnsJSON)
 	e.GET("/api/projects/:id/filters", projectHandler.GetProjectFilters)
 	e.POST("/api/projects/:id/simpletab", projectHandler.ProjectSimpletab)
 	e.POST("/api/projects/:id/crosstab", projectHandler.ProjectCrosstab)

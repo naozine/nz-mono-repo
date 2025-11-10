@@ -328,7 +328,7 @@ func (h *ProjectHandler) getProjectHandler(projectID string) (*Handler, error) {
 	return NewHandlerWithConfigs(dbPath, p.TableName, derivedColumnsPath, filtersPath, columnOrdersPath), nil
 }
 
-// GetProjectColumns はプロジェクトのカラム一覧を返す
+// GetProjectColumns はプロジェクトのカラム一覧をHTML形式で返す（htmx用）
 func (h *ProjectHandler) GetProjectColumns(c echo.Context) error {
 	projectID := c.Param("id")
 	handler, err := h.getProjectHandler(projectID)
@@ -336,6 +336,16 @@ func (h *ProjectHandler) GetProjectColumns(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
 	return handler.GetColumns(c)
+}
+
+// GetProjectColumnsJSON はプロジェクトのカラム一覧をJSON形式で返す（API用）
+func (h *ProjectHandler) GetProjectColumnsJSON(c echo.Context) error {
+	projectID := c.Param("id")
+	handler, err := h.getProjectHandler(projectID)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+	return handler.GetColumnsJSON(c)
 }
 
 // GetProjectFilters はプロジェクトのフィルタ一覧を返す
