@@ -183,6 +183,18 @@ function renderChart() {
     // ピボットデータを取得（Goテンプレートから）
     const pivotData = {{.PivotJSON}};
 
+    // X軸の項目数に応じてキャンバスの高さを動的に設定
+    // 1項目あたり40px + 余白（凡例、タイトルなど）で200px
+    const itemCount = pivotData.XValues.length;
+    const minHeight = 300; // 最小高さ
+    const itemHeight = 20; // 1項目あたりの高さ
+    const padding = 200; // 凡例、タイトルなどの余白
+    const calculatedHeight = Math.max(minHeight, itemCount * itemHeight + padding);
+
+    // 親要素の高さを設定
+    ctx.parentElement.style.height = calculatedHeight + 'px';
+    ctx.height = calculatedHeight;
+
     // Chart.js用のデータセットを作成
     const datasets = [];
     const colors = [
@@ -236,7 +248,7 @@ function renderChart() {
             data: data,
             backgroundColor: colors[index % colors.length],
             borderColor: colors[index % colors.length],
-            borderWidth: 1
+            borderWidth: 1,
         });
     });
 
@@ -261,8 +273,7 @@ function renderChart() {
         options: {
             indexAxis: 'y', // 横棒グラフ
             responsive: true,
-            maintainAspectRatio: true,
-            aspectRatio: 2,
+            maintainAspectRatio: false, // 高さを動的に設定するためfalseに
             plugins: {
                 title: {
                     display: true,
