@@ -1,0 +1,1000 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{.Project.Name}} - Calcanke</title>
+
+    <!-- Tailwind CSS (CDN) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- htmx (CDN) -->
+    <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+
+    <!-- _hyperscript (CDN) -->
+    <script src="https://unpkg.com/hyperscript.org@0.9.12"></script>
+
+    <!-- Chart.js (CDN) -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+    <style>
+        /* htmxのインジケーター */
+        .htmx-indicator {
+            display: none;
+        }
+        .htmx-request .htmx-indicator {
+            display: inline;
+        }
+        .htmx-request.htmx-indicator {
+            display: inline;
+        }
+
+        /* モーダルが開いている時はstickyを無効化 */
+        body.modal-open .sticky {
+            position: relative !important;
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <!-- ヘッダー -->
+    <header class="bg-white shadow">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            <h1 class="text-2xl font-bold text-gray-900">
+                Calcanke - アンケートデータ分析ツール
+            </h1>
+        </div>
+    </header>
+
+    <!-- メインコンテンツ -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div class="mb-6">
+            <a href="/" class="inline-flex items-center text-sm text-gray-600 hover:text-gray-900 mb-4">
+                <svg class="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                </svg>
+                プロジェクト一覧に戻る
+            </a>
+            <h1 class="text-3xl font-bold text-gray-900">{{.Project.Name}}</h1>
+            {{if .Project.Description}}
+            <p class="mt-2 text-sm text-gray-600">{{.Project.Description}}</p>
+            {{end}}
+        </div>
+
+        <div class="mb-6 bg-white rounded-lg shadow p-6">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                <div>
+                    <span class="font-semibold text-gray-700">Excelファイル:</span>
+                    <span class="text-gray-600">{{.Project.ExcelFilename}}</span>
+                </div>
+                <div>
+                    <span class="font-semibold text-gray-700">テーブル:</span>
+                    <span class="text-gray-600">{{.Table}}</span>
+                </div>
+                <div>
+                    <span class="font-semibold text-gray-700">総レコード数:</span>
+                    <span class="text-gray-600">{{.Total}}件</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- 左側: 設定パネル -->
+            <div class="lg:col-span-1">
+                <div class="bg-white rounded-lg shadow p-6 sticky top-4">
+                    <h2 class="text-lg font-semibold text-gray-900 mb-4">集計設定</h2>
+
+                    <form id="analysis-form" class="space-y-6">
+                        <!-- 分析タイプ選択 -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                分析タイプ
+                            </label>
+                            <div class="space-y-2">
+                                <label class="flex items-center">
+                                    <input type="radio" name="analysis_type" value="simple" checked
+                                           class="mr-2"
+                                           hx-get="/api/projects/{{.Project.ID}}/columns?analysis_type=simple"
+                                           hx-target="#column-selector"
+                                           hx-trigger="change">
+                                    <span>単純集計（1列）</span>
+                                </label>
+                                <label class="flex items-center">
+                                    <input type="radio" name="analysis_type" value="cross"
+                                           class="mr-2"
+                                           hx-get="/api/projects/{{.Project.ID}}/columns?analysis_type=cross"
+                                           hx-target="#column-selector"
+                                           hx-trigger="change">
+                                    <span>クロス集計（2列）</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- 列選択エリア（htmxで動的に更新） -->
+                        <div id="column-selector"
+                             hx-get="/api/projects/{{.Project.ID}}/columns?analysis_type=simple"
+                             hx-trigger="load">
+                            <!-- 初期読み込みで列選択UIが表示される -->
+                        </div>
+
+                        <!-- フィルタ選択エリア（htmxで動的に更新） -->
+                        <div id="filter-selector"
+                             hx-get="/api/projects/{{.Project.ID}}/filters"
+                             hx-trigger="load">
+                            <!-- 初期読み込みでフィルタ選択UIが表示される -->
+                        </div>
+
+                        <!-- ローディング表示 -->
+                        <div id="loading-indicator" class="hidden">
+                            <div class="flex items-center justify-center p-3 bg-blue-50 rounded-lg border border-blue-200">
+                                <svg class="animate-spin h-5 w-5 text-blue-600 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                <span class="text-sm text-blue-700 font-medium">集計中...</span>
+                            </div>
+                        </div>
+                    </form>
+
+                    <!-- 派生列管理アコーディオン -->
+                    <div class="mt-6 border-t border-gray-200 pt-4">
+                        <button
+                            type="button"
+                            class="w-full flex items-center justify-between text-left text-sm font-medium text-gray-700 hover:text-gray-900"
+                            onclick="toggleAccordion('derived-columns-section')"
+                        >
+                            <span>派生列管理 (<span id="derived-columns-count">0</span>件)</span>
+                            <svg id="derived-columns-icon" class="w-5 h-5 transform transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </button>
+                        <div id="derived-columns-section" class="hidden mt-3 space-y-2">
+                            <div id="derived-columns-list" class="space-y-2">
+                                <!-- 派生列一覧がここに表示される -->
+                            </div>
+                            <button
+                                type="button"
+                                class="w-full px-3 py-2 text-sm text-blue-600 hover:bg-blue-50 rounded border border-blue-300 hover:border-blue-400 transition-colors"
+                                onclick="openDerivedColumnModal()"
+                            >
+                                + 新しい派生列を追加
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- フィルタ管理アコーディオン -->
+                    <div class="mt-4 border-t border-gray-200 pt-4">
+                        <button
+                            type="button"
+                            class="w-full flex items-center justify-between text-left text-sm font-medium text-gray-700 hover:text-gray-900"
+                            onclick="toggleAccordion('filters-config-section')"
+                        >
+                            <span>フィルタ管理 (<span id="filters-config-count">0</span>件)</span>
+                            <svg id="filters-config-icon" class="w-5 h-5 transform transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </button>
+                        <div id="filters-config-section" class="hidden mt-3 space-y-2">
+                            <div id="filters-config-list" class="space-y-2">
+                                <!-- フィルタ一覧がここに表示される -->
+                            </div>
+                            <button
+                                type="button"
+                                class="w-full px-3 py-2 text-sm text-blue-600 hover:bg-blue-50 rounded border border-blue-300 hover:border-blue-400 transition-colors"
+                                onclick="openFilterModal()"
+                            >
+                                + 新しいフィルタを追加
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 右側: 結果表示エリア -->
+            <div class="lg:col-span-2">
+                <div id="result-area" class="bg-white rounded-lg shadow p-6 min-h-96">
+                    <div class="text-center text-gray-500 py-12">
+                        <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                        </svg>
+                        <p class="mt-4">集計条件を設定すると、自動的に結果が表示されます</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- フッター -->
+    <footer class="bg-white mt-auto border-t border-gray-200">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 text-center text-sm text-gray-500">
+            Calcanke v1.0
+        </div>
+    </footer>
+
+    <!-- 派生列追加・編集モーダル -->
+    <div id="derived-column-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+        <div class="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-2/3 shadow-lg rounded-md bg-white">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-semibold text-gray-900" id="derived-column-modal-title">派生列を追加</h3>
+                <button onclick="closeDerivedColumnModal()" class="text-gray-400 hover:text-gray-600">
+                    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            <form id="derived-column-form" class="space-y-4">
+                <input type="hidden" id="derived-column-index" value="">
+
+                <!-- 基本情報 -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                        派生列名 <span class="text-red-500">*</span>
+                    </label>
+                    <input type="text" id="derived-column-name" required
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                           placeholder="例: 学年区分">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                        説明
+                    </label>
+                    <textarea id="derived-column-description"
+                              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              rows="2"
+                              placeholder="この派生列の説明を入力してください"></textarea>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                        計算タイプ <span class="text-red-500">*</span>
+                    </label>
+                    <select id="derived-column-calc-type" required
+                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            onchange="updateDerivedColumnFormType()">
+                        <option value="rules">ルールベース（条件分岐）</option>
+                        <option value="grade_from_birthdate">学年計算（生年月日から）</option>
+                        <option value="school_type_from_birthdate">学校種別計算（生年月日から）</option>
+                        <option value="merge">複数列の結合</option>
+                    </select>
+                </div>
+
+                <!-- タイプ別のフォーム領域 -->
+                <div id="derived-column-type-specific-form">
+                    <!-- ここに動的にフォームが表示される -->
+                </div>
+
+                <div class="flex justify-end space-x-3 pt-4 border-t border-gray-200">
+                    <button type="button" onclick="closeDerivedColumnModal()"
+                            class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
+                        キャンセル
+                    </button>
+                    <button type="submit"
+                            class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700">
+                        保存
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- フィルタ追加・編集モーダル -->
+    <div id="filter-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+        <div class="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-2/3 shadow-lg rounded-md bg-white">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-semibold text-gray-900" id="filter-modal-title">フィルタを追加</h3>
+                <button onclick="closeFilterModal()" class="text-gray-400 hover:text-gray-600">
+                    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            <form id="filter-form" class="space-y-4">
+                <input type="hidden" id="filter-index" value="">
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                        フィルタ名 <span class="text-red-500">*</span>
+                    </label>
+                    <input type="text" id="filter-name" required
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                           placeholder="例: 小学生のみ">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                        説明
+                    </label>
+                    <textarea id="filter-description"
+                              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              rows="2"
+                              placeholder="このフィルタの説明を入力してください"></textarea>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        条件
+                    </label>
+                    <div id="filter-conditions-list" class="space-y-2">
+                        <!-- 条件がここに表示される -->
+                    </div>
+                    <button type="button" onclick="addFilterCondition()"
+                            class="mt-2 px-3 py-1 text-sm text-blue-600 hover:bg-blue-50 rounded border border-blue-300">
+                        + 条件を追加
+                    </button>
+                </div>
+
+                <div class="flex justify-end space-x-3 pt-4 border-t border-gray-200">
+                    <button type="button" onclick="closeFilterModal()"
+                            class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
+                        キャンセル
+                    </button>
+                    <button type="submit"
+                            class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700">
+                        保存
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const PROJECT_ID = '{{.Project.ID}}';
+
+        // URLパラメータを取得
+        function getURLParams() {
+            const params = new URLSearchParams(window.location.search);
+            return {
+                type: params.get('type') || 'simple',
+                c: params.get('c'),
+                s: params.get('s') === '1',
+                x: params.get('x'),
+                y: params.get('y'),
+                sx: params.get('sx') === '1',
+                sy: params.get('sy') === '1',
+                filter: params.get('filter') || '',
+                chart: params.get('chart') === '1' || params.get('chart') === null, // デフォルトは表示
+                chartMode: params.get('chartMode') || 'count' // デフォルトは件数
+            };
+        }
+
+        // URLパラメータを更新
+        function updateURL(forceChartUpdate = false) {
+            const form = document.getElementById('analysis-form');
+            const formData = new FormData(form);
+            const analysisType = formData.get('analysis_type');
+
+            const params = new URLSearchParams();
+            params.set('type', analysisType);
+
+            if (analysisType === 'simple') {
+                const column = formData.get('column');
+                const split = formData.get('split');
+                if (column) params.set('c', column);
+                if (split) params.set('s', '1');
+            } else {
+                const xColumn = formData.get('x_column');
+                const yColumn = formData.get('y_column');
+                const splitX = formData.get('split_x');
+                const splitY = formData.get('split_y');
+                if (xColumn) params.set('x', xColumn);
+                if (yColumn) params.set('y', yColumn);
+                if (splitX) params.set('sx', '1');
+                if (splitY) params.set('sy', '1');
+            }
+
+            const filter = formData.get('filter');
+            if (filter) params.set('filter', filter);
+
+            // グラフ表示状態
+            if (forceChartUpdate) {
+                const chartArea = document.getElementById('chart-area');
+                if (chartArea && chartArea.classList.contains('hidden')) {
+                    params.set('chart', '0');
+                } else {
+                    params.set('chart', '1');
+                }
+
+                if (window.chartMode) {
+                    params.set('chartMode', window.chartMode);
+                }
+            } else {
+                const currentParams = new URLSearchParams(window.location.search);
+                const currentChart = currentParams.get('chart');
+                if (currentChart === '0' || currentChart === '1') {
+                    params.set('chart', currentChart);
+                } else {
+                    params.set('chart', '1');
+                }
+
+                const currentChartMode = currentParams.get('chartMode');
+                if (currentChartMode) {
+                    params.set('chartMode', currentChartMode);
+                } else {
+                    params.set('chartMode', 'count');
+                }
+            }
+
+            const newURL = window.location.pathname + '?' + params.toString();
+            history.replaceState(null, '', newURL);
+        }
+
+        // 自動集計実行関数
+        window.triggerAnalysis = function(shouldUpdateURL = true) {
+            const form = document.getElementById('analysis-form');
+            const formData = new FormData(form);
+            const analysisType = formData.get('analysis_type');
+
+            // バリデーション
+            if (analysisType === 'simple') {
+                const column = formData.get('column');
+                if (!column) {
+                    return;
+                }
+            } else if (analysisType === 'cross') {
+                const xColumn = formData.get('x_column');
+                const yColumn = formData.get('y_column');
+                if (!xColumn || !yColumn) {
+                    return;
+                }
+            }
+
+            // プロジェクト固有のエンドポイントを使用
+            const endpoint = analysisType === 'simple'
+                ? `/api/projects/${PROJECT_ID}/simpletab`
+                : `/api/projects/${PROJECT_ID}/crosstab`;
+
+            const loadingIndicator = document.getElementById('loading-indicator');
+            loadingIndicator.classList.remove('hidden');
+
+            htmx.ajax('POST', endpoint, {
+                target: '#result-area',
+                swap: 'innerHTML',
+                values: Object.fromEntries(formData)
+            }).then(function() {
+                loadingIndicator.classList.add('hidden');
+                if (shouldUpdateURL) {
+                    updateURL();
+                }
+            }).catch(function() {
+                loadingIndicator.classList.add('hidden');
+            });
+        };
+
+        document.getElementById('analysis-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+        });
+
+        // ページロード時にURLパラメータから状態を復元
+        document.addEventListener('DOMContentLoaded', function() {
+            const urlParams = getURLParams();
+
+            const typeRadio = document.querySelector(`input[name="analysis_type"][value="${urlParams.type}"]`);
+            if (typeRadio && !typeRadio.checked) {
+                typeRadio.checked = true;
+                typeRadio.dispatchEvent(new Event('change'));
+            }
+
+            setTimeout(function() {
+                restoreFormState(urlParams);
+            }, 300);
+        });
+
+        function restoreFormState(urlParams) {
+            if (urlParams.type === 'simple') {
+                if (urlParams.c) {
+                    const columnSelect = document.getElementById('column-select');
+                    if (columnSelect) {
+                        columnSelect.value = urlParams.c;
+                        columnSelect.dispatchEvent(new Event('change'));
+                    }
+                }
+                if (urlParams.s) {
+                    const splitCheckbox = document.querySelector('input[name="split"]');
+                    if (splitCheckbox) {
+                        splitCheckbox.checked = true;
+                    }
+                }
+            } else {
+                if (urlParams.x) {
+                    const xRadio = document.querySelector(`input[name="x_column"][value="${urlParams.x}"]`);
+                    if (xRadio) {
+                        xRadio.checked = true;
+                        xRadio.dispatchEvent(new Event('change'));
+                    }
+                }
+                if (urlParams.y) {
+                    const yRadio = document.querySelector(`input[name="y_column"][value="${urlParams.y}"]`);
+                    if (yRadio) {
+                        yRadio.checked = true;
+                        yRadio.dispatchEvent(new Event('change'));
+                    }
+                }
+                if (urlParams.sx) {
+                    const splitXCheckbox = document.querySelector('input[name="split_x"]');
+                    if (splitXCheckbox) {
+                        splitXCheckbox.checked = true;
+                    }
+                }
+                if (urlParams.sy) {
+                    const splitYCheckbox = document.querySelector('input[name="split_y"]');
+                    if (splitYCheckbox) {
+                        splitYCheckbox.checked = true;
+                    }
+                }
+            }
+
+            if (urlParams.filter) {
+                const filterSelect = document.getElementById('filter-select');
+                if (filterSelect) {
+                    filterSelect.value = urlParams.filter;
+                    filterSelect.dispatchEvent(new Event('change'));
+                }
+            }
+
+            if ((urlParams.type === 'simple' && urlParams.c) ||
+                (urlParams.type === 'cross' && urlParams.x && urlParams.y)) {
+                window.triggerAnalysis(false);
+
+                setTimeout(function() {
+                    updateURL();
+                }, 500);
+            }
+        }
+
+        // アコーディオンの開閉
+        function toggleAccordion(sectionId) {
+            const section = document.getElementById(sectionId);
+            const icon = document.getElementById(sectionId.replace('-section', '-icon'));
+
+            if (section.classList.contains('hidden')) {
+                section.classList.remove('hidden');
+                icon.style.transform = 'rotate(180deg)';
+            } else {
+                section.classList.add('hidden');
+                icon.style.transform = 'rotate(0deg)';
+            }
+        }
+
+        // 派生列一覧の読み込み
+        async function loadDerivedColumns() {
+            try {
+                const response = await fetch(`/api/projects/${PROJECT_ID}/derived-columns`);
+                const columns = await response.json();
+
+                const listEl = document.getElementById('derived-columns-list');
+                const countEl = document.getElementById('derived-columns-count');
+
+                countEl.textContent = columns.length;
+
+                if (columns.length === 0) {
+                    listEl.innerHTML = '<p class="text-xs text-gray-500 text-center py-2">派生列がありません</p>';
+                    return;
+                }
+
+                listEl.innerHTML = columns.map((col, index) => `
+                    <div class="p-2 bg-gray-50 rounded border border-gray-200 text-xs">
+                        <div class="flex justify-between items-start">
+                            <div class="flex-1 cursor-pointer" onclick="openDerivedColumnModal(${index})">
+                                <div class="font-medium text-gray-900">${escapeHtml(col.name)}</div>
+                                <div class="text-gray-500 mt-1">${escapeHtml(col.description || '')}</div>
+                                <div class="text-gray-400 mt-1">タイプ: ${escapeHtml(col.calculation_type || 'rules')}</div>
+                            </div>
+                            <button
+                                onclick="deleteDerivedColumn(${index})"
+                                class="ml-2 text-red-600 hover:text-red-700"
+                                title="削除"
+                            >
+                                ✕
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('Failed to load derived columns:', error);
+            }
+        }
+
+        // フィルタ設定一覧の読み込み
+        async function loadFiltersConfig() {
+            try {
+                const response = await fetch(`/api/projects/${PROJECT_ID}/filters-config`);
+                const filters = await response.json();
+
+                const listEl = document.getElementById('filters-config-list');
+                const countEl = document.getElementById('filters-config-count');
+
+                countEl.textContent = filters.length;
+
+                if (filters.length === 0) {
+                    listEl.innerHTML = '<p class="text-xs text-gray-500 text-center py-2">フィルタがありません</p>';
+                    return;
+                }
+
+                listEl.innerHTML = filters.map((filter, index) => `
+                    <div class="p-2 bg-gray-50 rounded border border-gray-200 text-xs">
+                        <div class="flex justify-between items-start">
+                            <div class="flex-1 cursor-pointer" onclick="openFilterModal(${index})">
+                                <div class="font-medium text-gray-900">${escapeHtml(filter.name)}</div>
+                                <div class="text-gray-500 mt-1">${escapeHtml(filter.description || '')}</div>
+                            </div>
+                            <button
+                                onclick="deleteFilterConfig(${index})"
+                                class="ml-2 text-red-600 hover:text-red-700"
+                                title="削除"
+                            >
+                                ✕
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('Failed to load filters config:', error);
+            }
+        }
+
+        // 派生列削除
+        async function deleteDerivedColumn(index) {
+            if (!confirm('この派生列を削除してもよろしいですか？')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/projects/${PROJECT_ID}/derived-columns/${index}`, {
+                    method: 'DELETE'
+                });
+
+                if (response.ok) {
+                    await loadDerivedColumns();
+                    // 集計設定の列選択を再読み込み
+                    htmx.trigger('#column-selector', 'load');
+                } else {
+                    alert('削除に失敗しました');
+                }
+            } catch (error) {
+                console.error('Failed to delete derived column:', error);
+                alert('削除に失敗しました');
+            }
+        }
+
+        // フィルタ削除
+        async function deleteFilterConfig(index) {
+            if (!confirm('このフィルタを削除してもよろしいですか？')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/projects/${PROJECT_ID}/filters-config/${index}`, {
+                    method: 'DELETE'
+                });
+
+                if (response.ok) {
+                    await loadFiltersConfig();
+                    // 集計設定のフィルタ選択を再読み込み
+                    htmx.trigger('#filter-selector', 'load');
+                } else {
+                    alert('削除に失敗しました');
+                }
+            } catch (error) {
+                console.error('Failed to delete filter config:', error);
+                alert('削除に失敗しました');
+            }
+        }
+
+        // 派生列モーダルを開く（新規追加）
+        function openDerivedColumnModal(index = null) {
+            const modal = document.getElementById('derived-column-modal');
+            const form = document.getElementById('derived-column-form');
+            const title = document.getElementById('derived-column-modal-title');
+            const indexInput = document.getElementById('derived-column-index');
+
+            // フォームをリセット
+            form.reset();
+            indexInput.value = index !== null ? index : '';
+
+            if (index !== null) {
+                // 編集モード
+                title.textContent = '派生列を編集';
+                // 既存データを読み込んでフォームに設定
+                loadDerivedColumnData(index);
+            } else {
+                // 新規追加モード
+                title.textContent = '派生列を追加';
+            }
+
+            // モーダル表示
+            modal.classList.remove('hidden');
+            document.body.classList.add('modal-open');
+
+            // 初期状態のフォームを表示
+            updateDerivedColumnFormType();
+        }
+
+        // 派生列モーダルを閉じる
+        function closeDerivedColumnModal() {
+            const modal = document.getElementById('derived-column-modal');
+            modal.classList.add('hidden');
+            document.body.classList.remove('modal-open');
+        }
+
+        // 派生列データを読み込む（編集用）
+        async function loadDerivedColumnData(index) {
+            try {
+                const response = await fetch(`/api/projects/${PROJECT_ID}/derived-columns`);
+                const columns = await response.json();
+                const column = columns[index];
+
+                if (column) {
+                    document.getElementById('derived-column-name').value = column.name || '';
+                    document.getElementById('derived-column-description').value = column.description || '';
+                    document.getElementById('derived-column-calc-type').value = column.calculation_type || 'rules';
+                    updateDerivedColumnFormType();
+                    // タイプ別のデータ読み込みは次のステップで実装
+                }
+            } catch (error) {
+                console.error('Failed to load derived column data:', error);
+            }
+        }
+
+        // 派生列フォームのタイプに応じた入力欄を表示
+        function updateDerivedColumnFormType() {
+            const calcType = document.getElementById('derived-column-calc-type').value;
+            const formArea = document.getElementById('derived-column-type-specific-form');
+
+            // タイプ別の詳細フォームは次のステップで実装
+            switch (calcType) {
+                case 'rules':
+                    formArea.innerHTML = '<p class="text-sm text-gray-500">ルールベースの設定フォームは次のステップで実装します</p>';
+                    break;
+                case 'grade_from_birthdate':
+                    formArea.innerHTML = '<p class="text-sm text-gray-500">学年計算の設定フォームは次のステップで実装します</p>';
+                    break;
+                case 'school_type_from_birthdate':
+                    formArea.innerHTML = '<p class="text-sm text-gray-500">学校種別計算の設定フォームは次のステップで実装します</p>';
+                    break;
+                case 'merge':
+                    formArea.innerHTML = '<p class="text-sm text-gray-500">複数列結合の設定フォームは次のステップで実装します</p>';
+                    break;
+            }
+        }
+
+        // 派生列フォームの送信
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('derived-column-form').addEventListener('submit', async function(e) {
+                e.preventDefault();
+
+                const index = document.getElementById('derived-column-index').value;
+                const name = document.getElementById('derived-column-name').value;
+                const description = document.getElementById('derived-column-description').value;
+                const calcType = document.getElementById('derived-column-calc-type').value;
+
+                // 基本的なデータ構造（タイプ別の詳細は次のステップで実装）
+                const data = {
+                    name: name,
+                    description: description,
+                    calculation_type: calcType,
+                    source_columns: [],
+                    parameters: {},
+                    rules: []
+                };
+
+                try {
+                    const url = index !== ''
+                        ? `/api/projects/${PROJECT_ID}/derived-columns/${index}`
+                        : `/api/projects/${PROJECT_ID}/derived-columns`;
+                    const method = index !== '' ? 'PUT' : 'POST';
+
+                    const response = await fetch(url, {
+                        method: method,
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(data)
+                    });
+
+                    if (response.ok) {
+                        closeDerivedColumnModal();
+                        await loadDerivedColumns();
+                        htmx.trigger('#column-selector', 'load');
+                        alert('派生列を保存しました');
+                    } else {
+                        alert('保存に失敗しました');
+                    }
+                } catch (error) {
+                    console.error('Failed to save derived column:', error);
+                    alert('保存に失敗しました');
+                }
+            });
+        });
+
+        // フィルタモーダルを開く（新規追加）
+        function openFilterModal(index = null) {
+            const modal = document.getElementById('filter-modal');
+            const form = document.getElementById('filter-form');
+            const title = document.getElementById('filter-modal-title');
+            const indexInput = document.getElementById('filter-index');
+
+            // フォームをリセット
+            form.reset();
+            indexInput.value = index !== null ? index : '';
+
+            if (index !== null) {
+                // 編集モード
+                title.textContent = 'フィルタを編集';
+                // 既存データを読み込んでフォームに設定
+                loadFilterData(index);
+            } else {
+                // 新規追加モード
+                title.textContent = 'フィルタを追加';
+                // 空の条件を1つ追加
+                document.getElementById('filter-conditions-list').innerHTML = '';
+                addFilterCondition();
+            }
+
+            // モーダル表示
+            modal.classList.remove('hidden');
+            document.body.classList.add('modal-open');
+        }
+
+        // フィルタモーダルを閉じる
+        function closeFilterModal() {
+            const modal = document.getElementById('filter-modal');
+            modal.classList.add('hidden');
+            document.body.classList.remove('modal-open');
+        }
+
+        // フィルタデータを読み込む（編集用）
+        async function loadFilterData(index) {
+            try {
+                const response = await fetch(`/api/projects/${PROJECT_ID}/filters-config`);
+                const filters = await response.json();
+                const filter = filters[index];
+
+                if (filter) {
+                    document.getElementById('filter-name').value = filter.name || '';
+                    document.getElementById('filter-description').value = filter.description || '';
+
+                    // 条件を表示
+                    const conditionsList = document.getElementById('filter-conditions-list');
+                    conditionsList.innerHTML = '';
+                    if (filter.conditions && filter.conditions.length > 0) {
+                        filter.conditions.forEach(cond => {
+                            addFilterCondition(cond);
+                        });
+                    } else {
+                        addFilterCondition();
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to load filter data:', error);
+            }
+        }
+
+        // フィルタ条件を追加
+        let filterConditionCounter = 0;
+        function addFilterCondition(condition = null) {
+            const conditionsList = document.getElementById('filter-conditions-list');
+            const conditionId = `filter-condition-${filterConditionCounter++}`;
+
+            const conditionHTML = `
+                <div class="p-3 bg-gray-50 rounded border border-gray-200" id="${conditionId}">
+                    <div class="flex justify-between items-start mb-2">
+                        <label class="text-sm font-medium text-gray-700">条件 ${filterConditionCounter}</label>
+                        <button type="button" onclick="removeFilterCondition('${conditionId}')"
+                                class="text-red-600 hover:text-red-700 text-sm">
+                            削除
+                        </button>
+                    </div>
+                    <div class="space-y-2">
+                        <div>
+                            <label class="block text-xs text-gray-600 mb-1">列名</label>
+                            <input type="text" class="filter-condition-column w-full px-2 py-1 text-sm border border-gray-300 rounded"
+                                   value="${condition?.column || ''}" placeholder="例: 学年" required>
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-600 mb-1">含む値（カンマ区切り）</label>
+                            <input type="text" class="filter-condition-include w-full px-2 py-1 text-sm border border-gray-300 rounded"
+                                   value="${condition?.include_values?.join(', ') || ''}" placeholder="例: 小1, 小2, 小3">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-600 mb-1">除外する値（カンマ区切り）</label>
+                            <input type="text" class="filter-condition-exclude w-full px-2 py-1 text-sm border border-gray-300 rounded"
+                                   value="${condition?.exclude_values?.join(', ') || ''}" placeholder="例: データなし">
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            conditionsList.insertAdjacentHTML('beforeend', conditionHTML);
+        }
+
+        // フィルタ条件を削除
+        function removeFilterCondition(conditionId) {
+            const element = document.getElementById(conditionId);
+            if (element) {
+                element.remove();
+            }
+        }
+
+        // フィルタフォームの送信
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('filter-form').addEventListener('submit', async function(e) {
+                e.preventDefault();
+
+                const index = document.getElementById('filter-index').value;
+                const name = document.getElementById('filter-name').value;
+                const description = document.getElementById('filter-description').value;
+
+                // 条件を収集
+                const conditionElements = document.querySelectorAll('#filter-conditions-list > div');
+                const conditions = [];
+
+                conditionElements.forEach(elem => {
+                    const column = elem.querySelector('.filter-condition-column').value.trim();
+                    const includeStr = elem.querySelector('.filter-condition-include').value.trim();
+                    const excludeStr = elem.querySelector('.filter-condition-exclude').value.trim();
+
+                    if (column) {
+                        const cond = { column: column };
+
+                        if (includeStr) {
+                            cond.include_values = includeStr.split(',').map(v => v.trim()).filter(v => v);
+                        }
+
+                        if (excludeStr) {
+                            cond.exclude_values = excludeStr.split(',').map(v => v.trim()).filter(v => v);
+                        }
+
+                        conditions.push(cond);
+                    }
+                });
+
+                const data = {
+                    name: name,
+                    description: description,
+                    conditions: conditions
+                };
+
+                try {
+                    const url = index !== ''
+                        ? `/api/projects/${PROJECT_ID}/filters-config/${index}`
+                        : `/api/projects/${PROJECT_ID}/filters-config`;
+                    const method = index !== '' ? 'PUT' : 'POST';
+
+                    const response = await fetch(url, {
+                        method: method,
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(data)
+                    });
+
+                    if (response.ok) {
+                        closeFilterModal();
+                        await loadFiltersConfig();
+                        htmx.trigger('#filter-selector', 'load');
+                        alert('フィルタを保存しました');
+                    } else {
+                        alert('保存に失敗しました');
+                    }
+                } catch (error) {
+                    console.error('Failed to save filter:', error);
+                    alert('保存に失敗しました');
+                }
+            });
+        });
+
+        // HTMLエスケープ
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // ページロード時に一覧を読み込み
+        document.addEventListener('DOMContentLoaded', function() {
+            loadDerivedColumns();
+            loadFiltersConfig();
+        });
+    </script>
+</body>
+</html>

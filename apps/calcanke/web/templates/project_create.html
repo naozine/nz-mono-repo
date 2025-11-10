@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>新規プロジェクト作成 - Calcanke</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50">
+    <header class="bg-white shadow">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            <h1 class="text-2xl font-bold text-gray-900">
+                Calcanke - アンケートデータ分析ツール
+            </h1>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div class="max-w-2xl mx-auto">
+            <div class="mb-8">
+                <a href="/" class="inline-flex items-center text-sm text-gray-600 hover:text-gray-900 mb-4">
+                    <svg class="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                    </svg>
+                    プロジェクト一覧に戻る
+                </a>
+                <h1 class="text-3xl font-bold text-gray-900">新規プロジェクト作成</h1>
+                <p class="mt-2 text-sm text-gray-600">プロジェクト情報を入力してください</p>
+            </div>
+
+            <div class="bg-white rounded-lg shadow p-6">
+                <form action="/projects" method="POST" class="space-y-6">
+                    <div>
+                        <label for="name" class="block text-sm font-medium text-gray-700 mb-2">
+                            プロジェクト名 <span class="text-red-600">*</span>
+                        </label>
+                        <input
+                            type="text"
+                            id="name"
+                            name="name"
+                            required
+                            class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            placeholder="例: 2025年度アンケート集計"
+                        >
+                        <p class="mt-1 text-xs text-gray-500">わかりやすいプロジェクト名を入力してください</p>
+                    </div>
+
+                    <div>
+                        <label for="description" class="block text-sm font-medium text-gray-700 mb-2">
+                            説明（任意）
+                        </label>
+                        <textarea
+                            id="description"
+                            name="description"
+                            rows="4"
+                            class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            placeholder="このプロジェクトの目的や内容を入力してください"
+                        ></textarea>
+                        <p class="mt-1 text-xs text-gray-500">プロジェクトの目的や内容を記載しておくと後で便利です</p>
+                    </div>
+
+                    <div class="flex justify-end space-x-3 pt-4">
+                        <a
+                            href="/"
+                            class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium transition duration-200"
+                        >
+                            キャンセル
+                        </a>
+                        <button
+                            type="submit"
+                            class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition duration-200"
+                        >
+                            作成して次へ
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <div class="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div class="flex">
+                    <div class="flex-shrink-0">
+                        <svg class="h-5 w-5 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                    </div>
+                    <div class="ml-3">
+                        <h3 class="text-sm font-medium text-blue-800">次のステップ</h3>
+                        <div class="mt-2 text-sm text-blue-700">
+                            <p>プロジェクト作成後、Excelファイルをアップロードします。</p>
+                            <p class="mt-1">その後、集計の設定を行って集計を開始できます。</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer class="bg-white mt-auto border-t border-gray-200">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 text-center text-sm text-gray-500">
+            Calcanke v1.0
+        </div>
+    </footer>
+</body>
+</html>

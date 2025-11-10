@@ -43,6 +43,28 @@ func LoadFilters(configPath string) ([]Filter, error) {
 	return config.Filters, nil
 }
 
+// SaveFilters はフィルタの定義を設定ファイルに書き込む
+func SaveFilters(configPath string, filters []Filter) error {
+	config := FilterConfig{
+		Filters: filters,
+	}
+
+	data, err := yaml.Marshal(&config)
+	if err != nil {
+		return fmt.Errorf("failed to marshal yaml: %w", err)
+	}
+
+	// ヘッダーコメントを追加
+	header := "# フィルタの定義\n# この設定ファイルで、データをフィルタリングするための条件を定義できます\n\n"
+	data = append([]byte(header), data...)
+
+	if err := os.WriteFile(configPath, data, 0644); err != nil {
+		return fmt.Errorf("failed to write config file: %w", err)
+	}
+
+	return nil
+}
+
 // GenerateWhereClause はフィルタからSQL WHERE句を生成
 func (f *Filter) GenerateWhereClause(analyzer *Analyzer) string {
 	var whereClauses []string

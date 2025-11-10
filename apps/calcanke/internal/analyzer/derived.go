@@ -53,6 +53,28 @@ func LoadDerivedColumns(configPath string) ([]DerivedColumn, error) {
 	return config.DerivedColumns, nil
 }
 
+// SaveDerivedColumns は派生列の定義を設定ファイルに書き込む
+func SaveDerivedColumns(configPath string, columns []DerivedColumn) error {
+	config := DerivedColumnConfig{
+		DerivedColumns: columns,
+	}
+
+	data, err := yaml.Marshal(&config)
+	if err != nil {
+		return fmt.Errorf("failed to marshal yaml: %w", err)
+	}
+
+	// ヘッダーコメントを追加
+	header := "# 派生列の定義\n# この設定ファイルで、既存の列から新しい列を動的に生成できます\n\n"
+	data = append([]byte(header), data...)
+
+	if err := os.WriteFile(configPath, data, 0644); err != nil {
+		return fmt.Errorf("failed to write config file: %w", err)
+	}
+
+	return nil
+}
+
 // GenerateCaseExpression は派生列のSQL CASE式を生成
 func (dc *DerivedColumn) GenerateCaseExpression() string {
 	// calculation_typeに応じて処理を分岐

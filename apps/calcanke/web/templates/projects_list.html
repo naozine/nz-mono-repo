@@ -1,0 +1,136 @@
+{{define "content"}}
+<div class="mb-8">
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-900">プロジェクト一覧</h1>
+            <p class="mt-2 text-sm text-gray-600">集計プロジェクトを管理します</p>
+        </div>
+        <a href="/projects/new"
+           class="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition duration-200">
+            <svg class="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+            </svg>
+            新規プロジェクト作成
+        </a>
+    </div>
+</div>
+
+{{if .Projects}}
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    {{range .Projects}}
+    <div class="bg-white rounded-lg shadow hover:shadow-lg transition-shadow duration-200 overflow-hidden">
+        <div class="p-6">
+            <div class="flex items-start justify-between">
+                <div class="flex-1">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-2">{{.Name}}</h3>
+                    {{if .Description}}
+                    <p class="text-sm text-gray-600 mb-4">{{.Description}}</p>
+                    {{else}}
+                    <p class="text-sm text-gray-400 italic mb-4">説明なし</p>
+                    {{end}}
+                </div>
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                    {{if eq .Status "ready"}}bg-green-100 text-green-800
+                    {{else if eq .Status "importing"}}bg-yellow-100 text-yellow-800
+                    {{else}}bg-red-100 text-red-800{{end}}">
+                    {{if eq .Status "ready"}}準備完了
+                    {{else if eq .Status "importing"}}インポート中
+                    {{else}}エラー{{end}}
+                </span>
+            </div>
+
+            <div class="flex items-center text-xs text-gray-500 mb-4">
+                <svg class="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                作成日: {{.CreatedAt.Format "2006-01-02 15:04"}}
+            </div>
+
+            {{if .ExcelFilename}}
+            <div class="flex items-center text-xs text-gray-500 mb-4">
+                <svg class="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                {{.ExcelFilename}}
+            </div>
+            {{end}}
+
+            <div class="flex space-x-2">
+                {{if eq .Status "ready"}}
+                <a href="/projects/{{.ID}}"
+                   class="flex-1 inline-flex justify-center items-center px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-md transition duration-200">
+                    <svg class="w-4 h-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                    </svg>
+                    集計画面
+                </a>
+                {{else if eq .Status "importing"}}
+                <a href="/projects/{{.ID}}/upload"
+                   class="flex-1 inline-flex justify-center items-center px-3 py-2 bg-yellow-600 hover:bg-yellow-700 text-white text-sm font-medium rounded-md transition duration-200">
+                    <svg class="w-4 h-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                    </svg>
+                    アップロード
+                </a>
+                {{else}}
+                <span class="flex-1 inline-flex justify-center items-center px-3 py-2 bg-gray-300 text-gray-600 text-sm font-medium rounded-md cursor-not-allowed">
+                    エラー発生
+                </span>
+                {{end}}
+
+                <button
+                    onclick="deleteProject('{{.ID}}', '{{.Name}}')"
+                    class="px-3 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-md transition duration-200">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </div>
+    {{end}}
+</div>
+{{else}}
+<div class="text-center py-12">
+    <svg class="mx-auto h-24 w-24 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9 13h6m-3-3v6m-9 1V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+    </svg>
+    <h3 class="mt-4 text-lg font-medium text-gray-900">プロジェクトがありません</h3>
+    <p class="mt-2 text-sm text-gray-500">新しいプロジェクトを作成して始めましょう</p>
+    <div class="mt-6">
+        <a href="/projects/new"
+           class="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition duration-200">
+            <svg class="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+            </svg>
+            新規プロジェクト作成
+        </a>
+    </div>
+</div>
+{{end}}
+
+<script>
+function deleteProject(id, name) {
+    if (!confirm(`プロジェクト「${name}」を削除してもよろしいですか？\n\nこの操作は取り消せません。`)) {
+        return;
+    }
+
+    fetch(`/api/projects/${id}`, {
+        method: 'DELETE'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            alert('削除に失敗しました: ' + data.error);
+        } else {
+            // ページをリロード
+            window.location.reload();
+        }
+    })
+    .catch(error => {
+        alert('削除に失敗しました: ' + error);
+    });
+}
+</script>
+{{end}}
+{{template "base.html" .}}

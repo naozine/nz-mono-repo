@@ -17,8 +17,13 @@ type Analyzer struct {
 	Filters        []Filter                  // 利用可能なフィルタ
 }
 
-// NewAnalyzer はAnalyzerを作成
+// NewAnalyzer はAnalyzerを作成（デフォルトのconfigs/パスを使用）
 func NewAnalyzer(dbPath, table string) (*Analyzer, error) {
+	return NewAnalyzerWithConfigs(dbPath, table, "configs/derived_columns.yaml", "configs/filters.yaml")
+}
+
+// NewAnalyzerWithConfigs は設定ファイルパスを指定してAnalyzerを作成
+func NewAnalyzerWithConfigs(dbPath, table, derivedColumnsPath, filtersPath string) (*Analyzer, error) {
 	// DuckDB拡張機能の自動インストールを有効化
 	db, err := sql.Open("duckdb", dbPath)
 	if err != nil {
@@ -44,7 +49,7 @@ func NewAnalyzer(dbPath, table string) (*Analyzer, error) {
 	}
 
 	// 派生列の設定を読み込み（オプショナル）
-	derivedCols, err := LoadDerivedColumns("configs/derived_columns.yaml")
+	derivedCols, err := LoadDerivedColumns(derivedColumnsPath)
 	if err != nil {
 		// 設定ファイルがなくてもエラーにしない
 		derivedCols = []DerivedColumn{}
@@ -57,7 +62,7 @@ func NewAnalyzer(dbPath, table string) (*Analyzer, error) {
 	}
 
 	// フィルタの設定を読み込み（オプショナル）
-	filters, err := LoadFilters("configs/filters.yaml")
+	filters, err := LoadFilters(filtersPath)
 	if err != nil {
 		// 設定ファイルがなくてもエラーにしない
 		filters = []Filter{}

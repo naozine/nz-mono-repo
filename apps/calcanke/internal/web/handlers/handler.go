@@ -6,12 +6,14 @@ import (
 
 // Handler はHTTPハンドラーの基底構造
 type Handler struct {
-	analyzer *analyzer.Analyzer
-	dbPath   string
-	table    string
+	analyzer           *analyzer.Analyzer
+	dbPath             string
+	table              string
+	derivedColumnsPath string // オプショナル：プロジェクト固有の派生列設定パス
+	filtersPath        string // オプショナル：プロジェクト固有のフィルタ設定パス
 }
 
-// NewHandler はハンドラーを作成する
+// NewHandler はハンドラーを作成する（デフォルトの設定パスを使用）
 func NewHandler(dbPath, table string) *Handler {
 	return &Handler{
 		dbPath: dbPath,
@@ -19,8 +21,22 @@ func NewHandler(dbPath, table string) *Handler {
 	}
 }
 
+// NewHandlerWithConfigs は設定ファイルパスを指定してハンドラーを作成する
+func NewHandlerWithConfigs(dbPath, table, derivedColumnsPath, filtersPath string) *Handler {
+	return &Handler{
+		dbPath:             dbPath,
+		table:              table,
+		derivedColumnsPath: derivedColumnsPath,
+		filtersPath:        filtersPath,
+	}
+}
+
 // getAnalyzer はAnalyzerのインスタンスを取得する
 // 各リクエストごとに新しいインスタンスを作成
 func (h *Handler) getAnalyzer() (*analyzer.Analyzer, error) {
+	// 設定ファイルパスが指定されている場合はそれを使用
+	if h.derivedColumnsPath != "" && h.filtersPath != "" {
+		return analyzer.NewAnalyzerWithConfigs(h.dbPath, h.table, h.derivedColumnsPath, h.filtersPath)
+	}
 	return analyzer.NewAnalyzer(h.dbPath, h.table)
 }
