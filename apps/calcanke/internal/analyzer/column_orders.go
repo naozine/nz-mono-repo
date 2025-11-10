@@ -68,25 +68,14 @@ func (co *ColumnOrder) GetOrderForColumn() map[string]int {
 
 // GetValueOrder は値の表示順序を取得（優先順位: 明示的設定 > 派生列ルール > デフォルト）
 func (a *Analyzer) GetValueOrder(columnName string) map[string]int {
-	// デバッグ用ログ
-	fmt.Printf("DEBUG: GetValueOrder called for column: %q\n", columnName)
-	fmt.Printf("DEBUG: Available column orders: %v\n", len(a.columnOrdersMap))
-	for k := range a.columnOrdersMap {
-		fmt.Printf("DEBUG: - Column order key: %q\n", k)
-	}
-
 	// 優先度1: 明示的な列順序設定
 	if colOrder, exists := a.columnOrdersMap[columnName]; exists {
-		fmt.Printf("DEBUG: Found explicit order for %q\n", columnName)
-		orderMap := colOrder.GetOrderForColumn()
-		fmt.Printf("DEBUG: Order map: %v\n", orderMap)
-		return orderMap
+		return colOrder.GetOrderForColumn()
 	}
 
 	// 優先度2: 派生列のルール順序
 	if derivedCol, exists := a.derivedColsMap[columnName]; exists {
 		if derivedCol.CalculationType == "rules" && len(derivedCol.Rules) > 0 {
-			fmt.Printf("DEBUG: Using derived column rules order for %q\n", columnName)
 			orderMap := make(map[string]int)
 			for i, rule := range derivedCol.Rules {
 				orderMap[rule.Label] = i
@@ -96,7 +85,6 @@ func (a *Analyzer) GetValueOrder(columnName string) map[string]int {
 	}
 
 	// 優先度3: デフォルト（順序なし = 空のマップ）
-	fmt.Printf("DEBUG: No custom order for %q, using default\n", columnName)
 	return make(map[string]int)
 }
 
@@ -131,5 +119,38 @@ func sortByOrder(values []string, orderMap map[string]int) {
 
 		// 両方とも順序が定義されていない場合は文字列順
 		return values[i] < values[j]
+	})
+}
+
+// sortByOrderForSimpletab は単純集計の行を指定された順序マップに従ってソートする
+// orderMapが空の場合は元の順序（カウント順）を維持する
+func sortByOrderForSimpletab(rows []SimpletabRow, orderMap map[string]int) {
+	if len(orderMap) == 0 {
+		// 順序が定義されていない場合は元の順序を維持（すでにカウント順）
+		return
+	}
+
+	// カスタム順序でソート
+	sort.Slice(rows, func(i, j int) bool {
+		orderI, existsI := orderMap[rows[i].Value]
+		orderJ, existsJ := orderMap[rows[j].Value]
+
+		// 両方とも順序が定義されている場合
+		if existsI && existsJ {
+			return orderI < orderJ
+		}
+
+		// iのみ順序が定義されている場合（iを先に）
+		if existsI {
+			return true
+		}
+
+		// jのみ順序が定義されている場合（jを先に）
+		if existsJ {
+			return false
+		}
+
+		// 両方とも順序が定義されていない場合はカウント順
+		return rows[i].Count > rows[j].Count
 	})
 }

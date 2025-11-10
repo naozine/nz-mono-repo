@@ -727,3 +727,48 @@ func (h *ProjectHandler) DeleteFilterConfig(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, map[string]string{"message": "Filter deleted successfully"})
 }
+
+// GetColumnOrders は列の値の表示順序設定を取得する
+func (h *ProjectHandler) GetColumnOrders(c echo.Context) error {
+	projectID := c.Param("id")
+
+	// プロジェクトを取得
+	p, err := h.repo.FindByID(projectID)
+	if err != nil || p == nil {
+		return c.JSON(http.StatusNotFound, map[string]string{"error": "Project not found"})
+	}
+
+	// 列順序設定を読み込み
+	columnOrdersPath := p.GetColumnOrdersPath(h.projectDir)
+	columnOrders, err := analyzer.LoadColumnOrders(columnOrdersPath)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to load column orders"})
+	}
+
+	return c.JSON(http.StatusOK, columnOrders)
+}
+
+// UpdateColumnOrders は列の値の表示順序設定を更新する
+func (h *ProjectHandler) UpdateColumnOrders(c echo.Context) error {
+	projectID := c.Param("id")
+
+	// プロジェクトを取得
+	p, err := h.repo.FindByID(projectID)
+	if err != nil || p == nil {
+		return c.JSON(http.StatusNotFound, map[string]string{"error": "Project not found"})
+	}
+
+	// リクエストボディをパース
+	var columnOrders []analyzer.ColumnOrder
+	if err := c.Bind(&columnOrders); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request body"})
+	}
+
+	// 保存
+	columnOrdersPath := p.GetColumnOrdersPath(h.projectDir)
+	if err := analyzer.SaveColumnOrders(columnOrdersPath, columnOrders); err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to save column orders"})
+	}
+
+	return c.JSON(http.StatusOK, map[string]string{"message": "Column orders updated successfully"})
+}

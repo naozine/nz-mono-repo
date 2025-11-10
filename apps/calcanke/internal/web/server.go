@@ -83,6 +83,10 @@ func NewServer(dbPath, table, projectsDir string) *echo.Echo {
 	e.PUT("/api/projects/:id/filters-config/:index", projectHandler.UpdateFilterConfig)
 	e.DELETE("/api/projects/:id/filters-config/:index", projectHandler.DeleteFilterConfig)
 
+	// ルーティング - 列順序管理
+	e.GET("/api/projects/:id/column-orders", projectHandler.GetColumnOrders)
+	e.PUT("/api/projects/:id/column-orders", projectHandler.UpdateColumnOrders)
+
 	// ルーティング - 集計機能（既存、後でプロジェクトIDベースに変更予定）
 	e.GET("/analysis", h.Index) // 一時的に /analysis に移動
 	e.GET("/api/columns", h.GetColumns)

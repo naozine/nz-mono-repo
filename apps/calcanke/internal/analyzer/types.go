@@ -90,6 +90,19 @@ type SimpletabRow struct {
 	Percentage float64
 }
 
+// SortByAnalyzer は列の値の表示順序に従って行をソートする
+func (r *SimpletabResult) SortByAnalyzer(a *Analyzer) {
+	if a == nil {
+		return
+	}
+
+	// 列の値の順序を取得
+	orderMap := a.GetValueOrder(r.Column)
+
+	// カスタム順序でソート
+	sortByOrderForSimpletab(r.Rows, orderMap)
+}
+
 // CrosstabPivot はクロス集計のピボット表示用データ
 type CrosstabPivot struct {
 	XColumn string

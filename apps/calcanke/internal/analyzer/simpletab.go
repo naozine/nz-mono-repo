@@ -58,6 +58,9 @@ func (a *Analyzer) SimpletabWithFilter(column *Column, split bool, filter *Filte
 		Total:  total,
 	}
 
+	// カスタム順序でソート
+	result.SortByAnalyzer(a)
+
 	return result, nil
 }
 
