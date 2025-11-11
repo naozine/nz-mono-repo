@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Excelアップロード - {{.Project.Name}} - Calcanke</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50">
+    <header class="bg-white shadow">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            <h1 class="text-2xl font-bold text-gray-900">
+                Calcanke - アンケートデータ分析ツール
+            </h1>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div class="max-w-2xl mx-auto">
+            <div class="mb-8">
+                <a href="/" class="inline-flex items-center text-sm text-gray-600 hover:text-gray-900 mb-4">
+                    <svg class="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                    </svg>
+                    プロジェクト一覧に戻る
+                </a>
+                <h1 class="text-3xl font-bold text-gray-900">Excelファイルをアップロード</h1>
+                <p class="mt-2 text-sm text-gray-600">プロジェクト: {{.Project.Name}}</p>
+            </div>
+
+            <div class="bg-white rounded-lg shadow p-6">
+                <form id="upload-form" enctype="multipart/form-data" class="space-y-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            Excelファイル <span class="text-red-600">*</span>
+                        </label>
+                        <div class="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-lg hover:border-gray-400 transition-colors">
+                            <div class="space-y-1 text-center">
+                                <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+                                    <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                                </svg>
+                                <div class="flex text-sm text-gray-600">
+                                    <label for="file-upload" class="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-blue-500">
+                                        <span>ファイルを選択</span>
+                                        <input id="file-upload" name="file" type="file" accept=".xlsx,.xls" required class="sr-only">
+                                    </label>
+                                    <p class="pl-1">またはドラッグ＆ドロップ</p>
+                                </div>
+                                <p class="text-xs text-gray-500">XLSX, XLS ファイル対応</p>
+                                <p id="file-name" class="text-sm font-medium text-gray-900 mt-2"></p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-end space-x-3 pt-4">
+                        <a
+                            href="/"
+                            class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium transition duration-200"
+                        >
+                            キャンセル
+                        </a>
+                        <button
+                            type="submit"
+                            id="upload-btn"
+                            class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition duration-200"
+                        >
+                            アップロード
+                        </button>
+                    </div>
+                </form>
+
+                <div id="progress-area" class="hidden mt-6">
+                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                        <div class="flex items-center">
+                            <svg class="animate-spin h-5 w-5 text-blue-600 mr-3" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            <div class="flex-1">
+                                <p class="text-sm font-medium text-blue-900" id="progress-text">アップロード中...</p>
+                                <div class="mt-2 bg-blue-200 rounded-full h-2">
+                                    <div id="progress-bar" class="bg-blue-600 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer class="bg-white mt-auto border-t border-gray-200">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 text-center text-sm text-gray-500">
+            Calcanke v1.0
+        </div>
+    </footer>
+
+    <script>
+    const form = document.getElementById('upload-form');
+    const fileInput = document.getElementById('file-upload');
+    const fileName = document.getElementById('file-name');
+    const progressArea = document.getElementById('progress-area');
+    const progressBar = document.getElementById('progress-bar');
+    const progressText = document.getElementById('progress-text');
+    const uploadBtn = document.getElementById('upload-btn');
+
+    fileInput.addEventListener('change', function(e) {
+        if (e.target.files.length > 0) {
+            fileName.textContent = e.target.files[0].name;
+        }
+    });
+
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+
+        const file = fileInput.files[0];
+        if (!file) {
+            alert('ファイルを選択してください');
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        uploadBtn.disabled = true;
+        uploadBtn.textContent = 'アップロード中...';
+        progressArea.classList.remove('hidden');
+
+        // プログレスバーのシミュレーション
+        let progress = 0;
+        const progressInterval = setInterval(function() {
+            if (progress < 90) {
+                progress += 10;
+                progressBar.style.width = progress + '%';
+            }
+        }, 200);
+
+        try {
+            const response = await fetch('/api/projects/{{.Project.ID}}/upload', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (!response.ok) {
+                throw new Error('アップロードに失敗しました');
+            }
+
+            clearInterval(progressInterval);
+            progressBar.style.width = '100%';
+            progressText.textContent = 'インポート完了！';
+
+            setTimeout(() => {
+                window.location.href = '/projects/{{.Project.ID}}';
+            }, 500);
+
+        } catch (error) {
+            clearInterval(progressInterval);
+            alert('エラーが発生しました: ' + error.message);
+            uploadBtn.disabled = false;
+            uploadBtn.textContent = 'アップロード';
+            progressArea.classList.add('hidden');
+            progressBar.style.width = '0%';
+        }
+    });
+    </script>
+</body>
+</html>

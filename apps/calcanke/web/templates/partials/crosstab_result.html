@@ -1,0 +1,598 @@
+{{define "crosstab_result.html"}}
+<div class="space-y-4">
+    <!-- ヘッダー情報 -->
+    <div class="border-b border-gray-200 pb-4">
+        <div class="flex items-center justify-between">
+            <h3 class="text-lg font-semibold text-gray-900">クロス集計結果</h3>
+            <div class="text-sm text-gray-600">
+                <span class="font-medium">総件数:</span> {{.Result.Total}}件
+            </div>
+        </div>
+    </div>
+
+    <!-- 表示切り替えコントロール -->
+    <div class="flex flex-col space-y-4">
+        <div class="flex items-center justify-between">
+            <!-- 表示形式切り替え -->
+        <div class="flex items-center space-x-4">
+            <span class="text-sm font-medium text-gray-700">表示形式:</span>
+            <div class="inline-flex rounded-md shadow-sm" role="group">
+            <button type="button" id="list-view-btn"
+                    class="px-4 py-2 text-sm font-medium text-gray-700 bg-white rounded-l-lg hover:bg-gray-50 border border-gray-300"
+                    _="on click
+                       remove .bg-white .text-gray-700 .border-gray-300 .hover:bg-gray-50 from me
+                       add .bg-blue-600 .text-white .border-blue-600 .hover:bg-blue-700 to me
+                       remove .bg-blue-600 .text-white .border-blue-600 .hover:bg-blue-700 from #pivot-view-btn
+                       add .bg-white .text-gray-700 .border-gray-300 .hover:bg-gray-50 to #pivot-view-btn
+                       remove .hidden from #list-table
+                       add .hidden to #pivot-table">
+                リスト形式
+            </button>
+            <button type="button" id="pivot-view-btn"
+                    class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-r-lg hover:bg-blue-700 border border-blue-600"
+                    _="on click
+                       remove .bg-white .text-gray-700 .border-gray-300 .hover:bg-gray-50 from me
+                       add .bg-blue-600 .text-white .border-blue-600 .hover:bg-blue-700 to me
+                       remove .bg-blue-600 .text-white .border-blue-600 .hover:bg-blue-700 from #list-view-btn
+                       add .bg-white .text-gray-700 .border-gray-300 .hover:bg-gray-50 to #list-view-btn
+                       add .hidden to #list-table
+                       remove .hidden from #pivot-table">
+                クロス表形式
+            </button>
+        </div>
+        </div>
+
+            <!-- グラフ表示トグル -->
+            <div class="flex items-center space-x-2">
+                <button type="button" id="chart-toggle-btn"
+                        class="px-4 py-2 text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 border border-gray-300 rounded-lg transition duration-200"
+                        onclick="toggleChart()">
+                    <span id="chart-toggle-text">グラフを表示</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- グラフモード切り替え -->
+        <div class="flex items-center space-x-4">
+            <span class="text-sm font-medium text-gray-700">グラフ表示:</span>
+            <div class="inline-flex rounded-md shadow-sm" role="group">
+                <button type="button" id="chart-mode-count"
+                        class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-l-lg hover:bg-blue-700 border border-blue-600"
+                        onclick="switchChartMode('count')">
+                    件数
+                </button>
+                <button type="button" id="chart-mode-row-percent"
+                        class="px-4 py-2 text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 border-t border-b border-gray-300"
+                        onclick="switchChartMode('row-percent')">
+                    行比率(%)
+                </button>
+                <button type="button" id="chart-mode-total-percent"
+                        class="px-4 py-2 text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 border border-gray-300 rounded-r-lg"
+                        onclick="switchChartMode('total-percent')">
+                    全体比率(%)
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- グラフエリア -->
+    <div id="chart-area" class="hidden border border-gray-200 rounded-lg p-4 bg-white">
+        <canvas id="crosstab-chart"></canvas>
+    </div>
+
+    <!-- リスト形式の表 -->
+    <div id="list-table" class="hidden">
+        {{template "crosstab_list.html" .}}
+    </div>
+
+    <!-- クロス表形式の表 -->
+    <div id="pivot-table">
+        {{template "crosstab_pivot.html" .}}
+    </div>
+
+    <!-- エクスポートボタン -->
+    <div class="flex justify-end">
+        <button type="button" id="copy-to-clipboard-btn"
+                class="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-lg transition duration-200 flex items-center"
+                onclick="copyTableToClipboard()">
+            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path>
+            </svg>
+            クリップボードにコピー
+        </button>
+    </div>
+
+    <!-- トースト通知 -->
+    <div id="copy-toast" class="hidden fixed bottom-4 right-4 bg-gray-800 text-white px-6 py-3 rounded-lg shadow-lg transition-opacity duration-300">
+        <span id="copy-toast-message">コピーしました</span>
+    </div>
+</div>
+
+<script>
+// グラフ表示モード（グローバル変数）
+window.chartMode = 'count'; // デフォルトは件数
+
+// グラフソート状態（グローバル変数）
+window.chartSortState = {
+    sortedBy: null,        // ソート中のY軸項目名（null=未ソート）
+    sortDirection: null,   // 'asc'（昇順）/ 'desc'（降順）/ null（元の順序）
+    originalData: null     // 元のデータ
+};
+
+// グラフモードを切り替え
+function switchChartMode(mode) {
+    window.chartMode = mode;
+
+    // ボタンのスタイルを更新
+    const buttons = {
+        'count': document.getElementById('chart-mode-count'),
+        'row-percent': document.getElementById('chart-mode-row-percent'),
+        'total-percent': document.getElementById('chart-mode-total-percent')
+    };
+
+    // すべてのボタンを非選択状態に
+    Object.values(buttons).forEach(btn => {
+        if (btn) {
+            btn.classList.remove('bg-blue-600', 'text-white', 'border-blue-600', 'hover:bg-blue-700');
+            btn.classList.add('bg-white', 'text-gray-700', 'border-gray-300', 'hover:bg-gray-50');
+        }
+    });
+
+    // 選択されたボタンを選択状態に
+    if (buttons[mode]) {
+        buttons[mode].classList.remove('bg-white', 'text-gray-700', 'border-gray-300', 'hover:bg-gray-50');
+        buttons[mode].classList.add('bg-blue-600', 'text-white', 'border-blue-600', 'hover:bg-blue-700');
+    }
+
+    // グラフを再描画
+    renderChart();
+
+    // URLを更新
+    if (window.updateURL) {
+        window.updateURL(true);
+    }
+}
+
+// グラフの表示/非表示を切り替え
+function toggleChart() {
+    const chartArea = document.getElementById('chart-area');
+    const toggleText = document.getElementById('chart-toggle-text');
+
+    if (chartArea.classList.contains('hidden')) {
+        // グラフを表示
+        chartArea.classList.remove('hidden');
+        toggleText.textContent = 'グラフを非表示';
+
+        // グラフを描画
+        renderChart();
+    } else {
+        // グラフを非表示
+        chartArea.classList.add('hidden');
+        toggleText.textContent = 'グラフを表示';
+    }
+
+    // URLを更新（DOM状態から強制的に更新）
+    if (window.updateURL) {
+        window.updateURL(true);
+    }
+}
+
+// データをY軸の値でソートする
+function sortChartData(pivotData, yValue, direction, chartMode) {
+    if (!direction) {
+        // ソートなし - 元の順序に戻す
+        return window.chartSortState.originalData ?
+            JSON.parse(JSON.stringify(window.chartSortState.originalData)) :
+            pivotData;
+    }
+
+    // データをコピー
+    const sortedData = JSON.parse(JSON.stringify(pivotData));
+
+    // X軸の値とそのY軸の値のペアを作成
+    const pairs = sortedData.XValues.map(xValue => {
+        const cell = sortedData.Matrix[xValue] && sortedData.Matrix[xValue][yValue];
+        let sortValue = 0;
+
+        if (cell && cell.Exists) {
+            if (chartMode === 'count') {
+                // 件数モード
+                sortValue = cell.Count;
+            } else if (chartMode === 'row-percent') {
+                // 行比率モード（各X値ごとに100%）
+                let rowTotal = 0;
+                sortedData.YValues.forEach(y => {
+                    const c = sortedData.Matrix[xValue] && sortedData.Matrix[xValue][y];
+                    if (c && c.Exists) rowTotal += c.Count;
+                });
+                sortValue = rowTotal > 0 ? (cell.Count / rowTotal * 100) : 0;
+            } else if (chartMode === 'total-percent') {
+                // 全体比率モード
+                sortValue = cell.Percentage;
+            }
+        }
+
+        return { xValue: xValue, sortValue: sortValue };
+    });
+
+    // ソート
+    pairs.sort((a, b) => {
+        if (direction === 'asc') {
+            return a.sortValue - b.sortValue;
+        } else {
+            return b.sortValue - a.sortValue;
+        }
+    });
+
+    // ソートされた順序でX軸の値を更新
+    sortedData.XValues = pairs.map(p => p.xValue);
+
+    return sortedData;
+}
+
+// グラフを描画
+function renderChart() {
+    const ctx = document.getElementById('crosstab-chart');
+    if (!ctx) return;
+
+    // 既存のグラフインスタンスを破棄
+    if (window.crosstabChartInstance) {
+        window.crosstabChartInstance.destroy();
+    }
+
+    // ピボットデータを取得（Goテンプレートから）
+    let pivotData = {{.PivotJSON}};
+
+    // 初回の場合、元データを保存
+    if (!window.chartSortState.originalData) {
+        window.chartSortState.originalData = JSON.parse(JSON.stringify(pivotData));
+    }
+
+    // ソートが指定されている場合、データをソート
+    if (window.chartSortState.sortedBy && window.chartSortState.sortDirection) {
+        pivotData = sortChartData(pivotData, window.chartSortState.sortedBy, window.chartSortState.sortDirection, window.chartMode);
+    }
+
+    // X軸の項目数に応じてキャンバスの高さを動的に設定
+    // 1項目あたり40px + 余白（凡例、タイトルなど）で200px
+    const itemCount = pivotData.XValues.length;
+    const minHeight = 300; // 最小高さ
+    const itemHeight = 20; // 1項目あたりの高さ
+    const padding = 200; // 凡例、タイトルなどの余白
+    const calculatedHeight = Math.max(minHeight, itemCount * itemHeight + padding);
+
+    // 親要素の高さを設定
+    ctx.parentElement.style.height = calculatedHeight + 'px';
+    ctx.height = calculatedHeight;
+
+    // Chart.js用のデータセットを作成
+    const datasets = [];
+    const colors = [
+        'rgb(59, 130, 246)',   // blue-500
+        'rgb(236, 72, 153)',   // pink-500
+        'rgb(34, 197, 94)',    // green-500
+        'rgb(251, 146, 60)',   // orange-500
+        'rgb(168, 85, 247)',   // purple-500
+        'rgb(20, 184, 166)',   // teal-500
+        'rgb(249, 115, 22)',   // orange-600
+        'rgb(139, 92, 246)',   // violet-500
+        'rgb(14, 165, 233)',   // sky-500
+        'rgb(244, 63, 94)',    // rose-500
+    ];
+
+    // Y軸の各値に対してデータセットを作成
+    pivotData.YValues.forEach((yValue, index) => {
+        const data = [];
+
+        // X軸の各値に対してデータを取得
+        pivotData.XValues.forEach(xValue => {
+            const cell = pivotData.Matrix[xValue] && pivotData.Matrix[xValue][yValue];
+
+            if (window.chartMode === 'count') {
+                // 件数モード
+                const count = cell && cell.Exists ? cell.Count : 0;
+                data.push(count);
+            } else if (window.chartMode === 'row-percent') {
+                // 行比率モード（各X値ごとに100%）
+                if (cell && cell.Exists) {
+                    // X値の行合計を計算
+                    let rowTotal = 0;
+                    pivotData.YValues.forEach(y => {
+                        const c = pivotData.Matrix[xValue] && pivotData.Matrix[xValue][y];
+                        if (c && c.Exists) rowTotal += c.Count;
+                    });
+                    const percentage = rowTotal > 0 ? (cell.Count / rowTotal * 100) : 0;
+                    data.push(percentage);
+                } else {
+                    data.push(0);
+                }
+            } else if (window.chartMode === 'total-percent') {
+                // 全体比率モード（全体に対する割合）
+                const percentage = cell && cell.Exists ? cell.Percentage : 0;
+                data.push(percentage);
+            }
+        });
+
+        datasets.push({
+            label: yValue,
+            data: data,
+            backgroundColor: colors[index % colors.length],
+            borderColor: colors[index % colors.length],
+            borderWidth: 1,
+        });
+    });
+
+    // モードに応じた軸ラベルとツールチップの設定
+    let xAxisLabel = '件数';
+    let tooltipSuffix = '';
+    if (window.chartMode === 'row-percent') {
+        xAxisLabel = '行比率(%)';
+        tooltipSuffix = '%';
+    } else if (window.chartMode === 'total-percent') {
+        xAxisLabel = '全体比率(%)';
+        tooltipSuffix = '%';
+    }
+
+    // グラフを描画
+    window.crosstabChartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: pivotData.XValues,
+            datasets: datasets
+        },
+        options: {
+            indexAxis: 'y', // 横棒グラフ
+            responsive: true,
+            maintainAspectRatio: false, // 高さを動的に設定するためfalseに
+            plugins: {
+                title: {
+                    display: true,
+                    text: pivotData.XColumn + ' × ' + pivotData.YColumn,
+                    font: {
+                        size: 16
+                    }
+                },
+                legend: {
+                    display: true,
+                    position: 'top',
+                    onClick: function(e, legendItem, legend) {
+                        // 凡例クリック時のソート処理
+                        const yValue = legendItem.text.replace(/ [▲▼]$/, ''); // インジケータを除去
+
+                        // ソート状態を更新
+                        if (window.chartSortState.sortedBy === yValue) {
+                            // 同じ項目をクリック: 昇順 → 降順 → なし
+                            if (window.chartSortState.sortDirection === 'asc') {
+                                window.chartSortState.sortDirection = 'desc';
+                            } else if (window.chartSortState.sortDirection === 'desc') {
+                                window.chartSortState.sortedBy = null;
+                                window.chartSortState.sortDirection = null;
+                            }
+                        } else {
+                            // 別の項目をクリック: 昇順から開始
+                            window.chartSortState.sortedBy = yValue;
+                            window.chartSortState.sortDirection = 'asc';
+                        }
+
+                        // グラフを再描画
+                        renderChart();
+                    },
+                    labels: {
+                        generateLabels: function(chart) {
+                            const data = chart.data;
+                            if (!data.datasets.length) return [];
+
+                            return data.datasets.map((dataset, i) => {
+                                const label = dataset.label || '';
+                                const sortState = window.chartSortState;
+
+                                // ソートインジケータを追加
+                                let displayLabel = label;
+                                if (sortState.sortedBy === label) {
+                                    if (sortState.sortDirection === 'asc') {
+                                        displayLabel += ' ▲';
+                                    } else if (sortState.sortDirection === 'desc') {
+                                        displayLabel += ' ▼';
+                                    }
+                                }
+
+                                return {
+                                    text: displayLabel,
+                                    fillStyle: dataset.backgroundColor,
+                                    hidden: false,
+                                    lineCap: dataset.borderCapStyle,
+                                    lineDash: [],
+                                    lineDashOffset: 0,
+                                    lineJoin: dataset.borderJoinStyle,
+                                    lineWidth: dataset.borderWidth,
+                                    strokeStyle: dataset.borderColor,
+                                    pointStyle: 'rect',
+                                    datasetIndex: i
+                                };
+                            });
+                        }
+                    }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            let label = context.dataset.label || '';
+                            if (label) {
+                                label += ': ';
+                            }
+                            if (window.chartMode === 'count') {
+                                label += context.parsed.x.toLocaleString();
+                            } else {
+                                label += context.parsed.x.toFixed(1) + '%';
+                            }
+                            return label;
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    stacked: true,
+                    title: {
+                        display: true,
+                        text: xAxisLabel
+                    },
+                    ticks: {
+                        callback: function(value) {
+                            if (window.chartMode === 'count') {
+                                return value.toLocaleString();
+                            } else {
+                                return value.toFixed(0) + '%';
+                            }
+                        }
+                    }
+                },
+                y: {
+                    stacked: true,
+                    title: {
+                        display: true,
+                        text: pivotData.XColumn
+                    }
+                }
+            }
+        }
+    });
+}
+
+function copyTableToClipboard() {
+    try {
+        // 現在表示されているテーブルを特定
+        const pivotTable = document.getElementById('pivot-table');
+        const listTable = document.getElementById('list-table');
+
+        let table;
+        if (!pivotTable.classList.contains('hidden')) {
+            table = pivotTable.querySelector('table');
+        } else if (!listTable.classList.contains('hidden')) {
+            table = listTable.querySelector('table');
+        } else {
+            showToast('テーブルが見つかりません', false);
+            return;
+        }
+
+        // テーブルをTSV形式に変換
+        const tsv = tableToTSV(table);
+
+        // クリップボードにコピー
+        navigator.clipboard.writeText(tsv).then(function() {
+            showToast('クリップボードにコピーしました', true);
+        }).catch(function(err) {
+            showToast('コピーに失敗しました', false);
+            console.error('コピーエラー:', err);
+        });
+    } catch (error) {
+        showToast('エラーが発生しました', false);
+        console.error('エラー:', error);
+    }
+}
+
+function tableToTSV(table) {
+    const rows = [];
+
+    // すべての行を処理
+    table.querySelectorAll('tr').forEach(row => {
+        const cells = [];
+        row.querySelectorAll('th, td').forEach(cell => {
+            // テキスト内容を取得（改行を削除、前後の空白を削除）
+            let text = cell.textContent.trim().replace(/\n/g, ' ').replace(/\s+/g, ' ');
+            cells.push(text);
+        });
+        if (cells.length > 0) {
+            rows.push(cells.join('\t'));
+        }
+    });
+
+    return rows.join('\n');
+}
+
+function showToast(message, isSuccess) {
+    const toast = document.getElementById('copy-toast');
+    const messageElement = document.getElementById('copy-toast-message');
+
+    messageElement.textContent = message;
+
+    // 背景色を成功/失敗で変更
+    if (isSuccess) {
+        toast.classList.remove('bg-red-600');
+        toast.classList.add('bg-gray-800');
+    } else {
+        toast.classList.remove('bg-gray-800');
+        toast.classList.add('bg-red-600');
+    }
+
+    // トーストを表示
+    toast.classList.remove('hidden');
+
+    // 2秒後に非表示
+    setTimeout(function() {
+        toast.classList.add('hidden');
+    }, 2000);
+}
+
+// htmxによるコンテンツ更新後にグラフを再描画
+document.body.addEventListener('htmx:afterSettle', function(event) {
+    // 集計結果が更新された場合のみ
+    if (event.detail.target.id === 'result-area') {
+        // ソート状態をリセット（新しいデータが読み込まれたため）
+        window.chartSortState = {
+            sortedBy: null,
+            sortDirection: null,
+            originalData: null
+        };
+
+        // URLパラメータからグラフ表示状態を取得（デフォルトは表示）
+        const params = new URLSearchParams(window.location.search);
+        const shouldShowChart = params.get('chart') === '1' || params.get('chart') === null;
+        const chartMode = params.get('chartMode') || 'count';
+
+        // グラフモードを復元
+        window.chartMode = chartMode;
+
+        // ボタンの状態を復元
+        const buttons = {
+            'count': document.getElementById('chart-mode-count'),
+            'row-percent': document.getElementById('chart-mode-row-percent'),
+            'total-percent': document.getElementById('chart-mode-total-percent')
+        };
+
+        Object.keys(buttons).forEach(mode => {
+            const btn = buttons[mode];
+            if (btn) {
+                if (mode === chartMode) {
+                    btn.classList.remove('bg-white', 'text-gray-700', 'border-gray-300', 'hover:bg-gray-50');
+                    btn.classList.add('bg-blue-600', 'text-white', 'border-blue-600', 'hover:bg-blue-700');
+                } else {
+                    btn.classList.remove('bg-blue-600', 'text-white', 'border-blue-600', 'hover:bg-blue-700');
+                    btn.classList.add('bg-white', 'text-gray-700', 'border-gray-300', 'hover:bg-gray-50');
+                }
+            }
+        });
+
+        const chartArea = document.getElementById('chart-area');
+        const toggleText = document.getElementById('chart-toggle-text');
+
+        if (chartArea) {
+            if (shouldShowChart) {
+                // グラフを表示
+                if (chartArea.classList.contains('hidden')) {
+                    chartArea.classList.remove('hidden');
+                    if (toggleText) toggleText.textContent = 'グラフを非表示';
+                }
+                renderChart();
+            } else {
+                // グラフを非表示
+                if (!chartArea.classList.contains('hidden')) {
+                    chartArea.classList.add('hidden');
+                    if (toggleText) toggleText.textContent = 'グラフを表示';
+                }
+            }
+        }
+    }
+});
+</script>
+{{end}}

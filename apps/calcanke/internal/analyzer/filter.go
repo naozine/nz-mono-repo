@@ -15,16 +15,16 @@ type FilterConfig struct {
 
 // Filter は1つのフィルタ定義
 type Filter struct {
-	Name        string            `yaml:"name"`
-	Description string            `yaml:"description"`
-	Conditions  []FilterCondition `yaml:"conditions"`
+	Name        string            `yaml:"name" json:"name"`
+	Description string            `yaml:"description" json:"description"`
+	Conditions  []FilterCondition `yaml:"conditions" json:"conditions"`
 }
 
 // FilterCondition はフィルタ条件
 type FilterCondition struct {
-	Column        string   `yaml:"column"`
-	IncludeValues []string `yaml:"include_values"` // この値のみ含む
-	ExcludeValues []string `yaml:"exclude_values"` // この値を除外
+	Column        string   `yaml:"column" json:"column"`
+	IncludeValues []string `yaml:"include_values" json:"include_values"` // この値のみ含む
+	ExcludeValues []string `yaml:"exclude_values" json:"exclude_values"` // この値を除外
 }
 
 // LoadFilters は設定ファイルからフィルタを読み込む
@@ -41,6 +41,28 @@ func LoadFilters(configPath string) ([]Filter, error) {
 	}
 
 	return config.Filters, nil
+}
+
+// SaveFilters はフィルタの定義を設定ファイルに書き込む
+func SaveFilters(configPath string, filters []Filter) error {
+	config := FilterConfig{
+		Filters: filters,
+	}
+
+	data, err := yaml.Marshal(&config)
+	if err != nil {
+		return fmt.Errorf("failed to marshal yaml: %w", err)
+	}
+
+	// ヘッダーコメントを追加
+	header := "# フィルタの定義\n# この設定ファイルで、データをフィルタリングするための条件を定義できます\n\n"
+	data = append([]byte(header), data...)
+
+	if err := os.WriteFile(configPath, data, 0644); err != nil {
+		return fmt.Errorf("failed to write config file: %w", err)
+	}
+
+	return nil
 }
 
 // GenerateWhereClause はフィルタからSQL WHERE句を生成

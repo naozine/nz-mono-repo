@@ -1,0 +1,1934 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{.Project.Name}} - Calcanke</title>
+
+    <!-- Tailwind CSS (CDN) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- htmx (CDN) -->
+    <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+
+    <!-- _hyperscript (CDN) -->
+    <script src="https://unpkg.com/hyperscript.org@0.9.12"></script>
+
+    <!-- Chart.js (CDN) -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+    <style>
+        /* htmxのインジケーター */
+        .htmx-indicator {
+            display: none;
+        }
+        .htmx-request .htmx-indicator {
+            display: inline;
+        }
+        .htmx-request.htmx-indicator {
+            display: inline;
+        }
+
+        /* モーダルが開いている時はstickyを無効化 */
+        body.modal-open .sticky {
+            position: relative !important;
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <!-- ヘッダー -->
+    <header class="bg-white shadow">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            <h1 class="text-2xl font-bold text-gray-900">
+                Calcanke - アンケートデータ分析ツール
+            </h1>
+        </div>
+    </header>
+
+    <!-- メインコンテンツ -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div class="mb-6">
+            <a href="/" class="inline-flex items-center text-sm text-gray-600 hover:text-gray-900 mb-4">
+                <svg class="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                </svg>
+                プロジェクト一覧に戻る
+            </a>
+            <h1 class="text-3xl font-bold text-gray-900">{{.Project.Name}}</h1>
+            {{if .Project.Description}}
+            <p class="mt-2 text-sm text-gray-600">{{.Project.Description}}</p>
+            {{end}}
+        </div>
+
+        <div class="mb-6 bg-white rounded-lg shadow p-6">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                <div>
+                    <span class="font-semibold text-gray-700">Excelファイル:</span>
+                    <span class="text-gray-600">{{.Project.ExcelFilename}}</span>
+                </div>
+                <div>
+                    <span class="font-semibold text-gray-700">テーブル:</span>
+                    <span class="text-gray-600">{{.Table}}</span>
+                </div>
+                <div>
+                    <span class="font-semibold text-gray-700">総レコード数:</span>
+                    <span class="text-gray-600">{{.Total}}件</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- 左側: 設定パネル -->
+            <div class="lg:col-span-1">
+                <div class="bg-white rounded-lg shadow p-6 sticky top-4">
+                    <h2 class="text-lg font-semibold text-gray-900 mb-4">集計設定</h2>
+
+                    <form id="analysis-form" class="space-y-6">
+                        <!-- 分析タイプ選択 -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                分析タイプ
+                            </label>
+                            <div class="space-y-2">
+                                <label class="flex items-center">
+                                    <input type="radio" name="analysis_type" value="simple" checked
+                                           class="mr-2"
+                                           hx-get="/api/projects/{{.Project.ID}}/columns?analysis_type=simple"
+                                           hx-target="#column-selector"
+                                           hx-trigger="change">
+                                    <span>単純集計（1列）</span>
+                                </label>
+                                <label class="flex items-center">
+                                    <input type="radio" name="analysis_type" value="cross"
+                                           class="mr-2"
+                                           hx-get="/api/projects/{{.Project.ID}}/columns?analysis_type=cross"
+                                           hx-target="#column-selector"
+                                           hx-trigger="change">
+                                    <span>クロス集計（2列）</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- 列選択エリア（htmxで動的に更新） -->
+                        <div id="column-selector"
+                             hx-get="/api/projects/{{.Project.ID}}/columns?analysis_type=simple"
+                             hx-trigger="load">
+                            <!-- 初期読み込みで列選択UIが表示される -->
+                        </div>
+
+                        <!-- フィルタ選択エリア（htmxで動的に更新） -->
+                        <div id="filter-selector"
+                             hx-get="/api/projects/{{.Project.ID}}/filters"
+                             hx-trigger="load">
+                            <!-- 初期読み込みでフィルタ選択UIが表示される -->
+                        </div>
+
+                        <!-- ローディング表示 -->
+                        <div id="loading-indicator" class="hidden">
+                            <div class="flex items-center justify-center p-3 bg-blue-50 rounded-lg border border-blue-200">
+                                <svg class="animate-spin h-5 w-5 text-blue-600 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                <span class="text-sm text-blue-700 font-medium">集計中...</span>
+                            </div>
+                        </div>
+                    </form>
+
+                    <!-- 派生列管理アコーディオン -->
+                    <div class="mt-6 border-t border-gray-200 pt-4">
+                        <button
+                            type="button"
+                            class="w-full flex items-center justify-between text-left text-sm font-medium text-gray-700 hover:text-gray-900"
+                            onclick="toggleAccordion('derived-columns-section')"
+                        >
+                            <span>派生列管理 (<span id="derived-columns-count">0</span>件)</span>
+                            <svg id="derived-columns-icon" class="w-5 h-5 transform transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </button>
+                        <div id="derived-columns-section" class="hidden mt-3 space-y-2">
+                            <div id="derived-columns-list" class="space-y-2">
+                                <!-- 派生列一覧がここに表示される -->
+                            </div>
+                            <button
+                                type="button"
+                                class="w-full px-3 py-2 text-sm text-blue-600 hover:bg-blue-50 rounded border border-blue-300 hover:border-blue-400 transition-colors"
+                                onclick="openDerivedColumnModal()"
+                            >
+                                + 新しい派生列を追加
+                            </button>
+                            <button
+                                type="button"
+                                class="w-full px-3 py-2 text-sm text-green-600 hover:bg-green-50 rounded border border-green-300 hover:border-green-400 transition-colors mt-2"
+                                onclick="openTemplateModal()"
+                            >
+                                テンプレートから追加
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- フィルタ管理アコーディオン -->
+                    <div class="mt-4 border-t border-gray-200 pt-4">
+                        <button
+                            type="button"
+                            class="w-full flex items-center justify-between text-left text-sm font-medium text-gray-700 hover:text-gray-900"
+                            onclick="toggleAccordion('filters-config-section')"
+                        >
+                            <span>フィルタ管理 (<span id="filters-config-count">0</span>件)</span>
+                            <svg id="filters-config-icon" class="w-5 h-5 transform transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </button>
+                        <div id="filters-config-section" class="hidden mt-3 space-y-2">
+                            <div id="filters-config-list" class="space-y-2">
+                                <!-- フィルタ一覧がここに表示される -->
+                            </div>
+                            <button
+                                type="button"
+                                class="w-full px-3 py-2 text-sm text-blue-600 hover:bg-blue-50 rounded border border-blue-300 hover:border-blue-400 transition-colors"
+                                onclick="openFilterModal()"
+                            >
+                                + 新しいフィルタを追加
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 列順序管理アコーディオン -->
+                    <div class="mt-4 border-t border-gray-200 pt-4">
+                        <button
+                            type="button"
+                            class="w-full flex items-center justify-between text-left text-sm font-medium text-gray-700 hover:text-gray-900"
+                            onclick="toggleAccordion('column-orders-section')"
+                        >
+                            <span>列順序管理 (<span id="column-orders-count">0</span>件)</span>
+                            <svg id="column-orders-icon" class="w-5 h-5 transform transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </button>
+                        <div id="column-orders-section" class="hidden mt-3 space-y-2">
+                            <div id="column-orders-list" class="space-y-2">
+                                <!-- 列順序一覧がここに表示される -->
+                            </div>
+                            <button
+                                type="button"
+                                class="w-full px-3 py-2 text-sm text-purple-600 hover:bg-purple-50 rounded border border-purple-300 hover:border-purple-400 transition-colors"
+                                onclick="openColumnOrderModal()"
+                            >
+                                + 新しい列順序を追加
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 右側: 結果表示エリア -->
+            <div class="lg:col-span-2">
+                <div id="result-area" class="bg-white rounded-lg shadow p-6 min-h-96">
+                    <div class="text-center text-gray-500 py-12">
+                        <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                        </svg>
+                        <p class="mt-4">集計条件を設定すると、自動的に結果が表示されます</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- フッター -->
+    <footer class="bg-white mt-auto border-t border-gray-200">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 text-center text-sm text-gray-500">
+            Calcanke v1.0
+        </div>
+    </footer>
+
+    <!-- 派生列追加・編集モーダル -->
+    <div id="derived-column-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+        <div class="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-2/3 shadow-lg rounded-md bg-white">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-semibold text-gray-900" id="derived-column-modal-title">派生列を追加</h3>
+                <button onclick="closeDerivedColumnModal()" class="text-gray-400 hover:text-gray-600">
+                    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            <form id="derived-column-form" class="space-y-4">
+                <input type="hidden" id="derived-column-index" value="">
+
+                <!-- 基本情報 -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                        派生列名 <span class="text-red-500">*</span>
+                    </label>
+                    <input type="text" id="derived-column-name" required
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                           placeholder="例: 学年区分">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                        説明
+                    </label>
+                    <textarea id="derived-column-description"
+                              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              rows="2"
+                              placeholder="この派生列の説明を入力してください"></textarea>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                        計算タイプ <span class="text-red-500">*</span>
+                    </label>
+                    <select id="derived-column-calc-type" required
+                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            onchange="updateDerivedColumnFormType()">
+                        <option value="rules">ルールベース（条件分岐）</option>
+                        <option value="grade_from_birthdate">学年計算（生年月日から）</option>
+                        <option value="school_type_from_birthdate">学校種別計算（生年月日から）</option>
+                        <option value="merge">複数列の結合</option>
+                    </select>
+                </div>
+
+                <!-- タイプ別のフォーム領域 -->
+                <div id="derived-column-type-specific-form">
+                    <!-- ここに動的にフォームが表示される -->
+                </div>
+
+                <div class="flex justify-end space-x-3 pt-4 border-t border-gray-200">
+                    <button type="button" onclick="closeDerivedColumnModal()"
+                            class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
+                        キャンセル
+                    </button>
+                    <button type="submit"
+                            class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700">
+                        保存
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- テンプレート選択モーダル -->
+    <div id="template-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+        <div class="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-2/3 shadow-lg rounded-md bg-white">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-semibold text-gray-900">テンプレートから追加</h3>
+                <button onclick="closeTemplateModal()" class="text-gray-400 hover:text-gray-600">
+                    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            <div class="space-y-4">
+                <p class="text-sm text-gray-600">追加したいテンプレートを選択してください（複数選択可）</p>
+                <div id="template-list" class="space-y-2 max-h-96 overflow-y-auto">
+                    <!-- テンプレート一覧がここに表示される -->
+                </div>
+                <div class="flex justify-end space-x-3 pt-4 border-t">
+                    <button
+                        type="button"
+                        onclick="closeTemplateModal()"
+                        class="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded"
+                    >
+                        キャンセル
+                    </button>
+                    <button
+                        type="button"
+                        onclick="importSelectedTemplates()"
+                        class="px-4 py-2 text-white bg-blue-600 hover:bg-blue-700 rounded"
+                    >
+                        インポート
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- フィルタ追加・編集モーダル -->
+    <div id="filter-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+        <div class="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-2/3 shadow-lg rounded-md bg-white">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-semibold text-gray-900" id="filter-modal-title">フィルタを追加</h3>
+                <button onclick="closeFilterModal()" class="text-gray-400 hover:text-gray-600">
+                    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            <form id="filter-form" class="space-y-4">
+                <input type="hidden" id="filter-index" value="">
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                        フィルタ名 <span class="text-red-500">*</span>
+                    </label>
+                    <input type="text" id="filter-name" required
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                           placeholder="例: 小学生のみ">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                        説明
+                    </label>
+                    <textarea id="filter-description"
+                              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              rows="2"
+                              placeholder="このフィルタの説明を入力してください"></textarea>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        条件
+                    </label>
+                    <div id="filter-conditions-list" class="space-y-2">
+                        <!-- 条件がここに表示される -->
+                    </div>
+                    <button type="button" onclick="addFilterCondition()"
+                            class="mt-2 px-3 py-1 text-sm text-blue-600 hover:bg-blue-50 rounded border border-blue-300">
+                        + 条件を追加
+                    </button>
+                </div>
+
+                <div class="flex justify-end space-x-3 pt-4 border-t border-gray-200">
+                    <button type="button" onclick="closeFilterModal()"
+                            class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
+                        キャンセル
+                    </button>
+                    <button type="submit"
+                            class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700">
+                        保存
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Column Order Modal -->
+    <div id="column-order-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+        <div class="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-2/3 shadow-lg rounded-md bg-white">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-semibold text-gray-900" id="column-order-modal-title">列順序を追加</h3>
+                <button onclick="closeColumnOrderModal()" class="text-gray-400 hover:text-gray-600">
+                    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            <form id="column-order-form" class="space-y-4">
+                <input type="hidden" id="column-order-index" value="">
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                        列名 <span class="text-red-500">*</span>
+                    </label>
+                    <select id="column-order-column" required
+                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500">
+                        <option value="">列を選択してください</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                        説明
+                    </label>
+                    <textarea id="column-order-description"
+                              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                              rows="2"
+                              placeholder="この列順序の説明を入力してください"></textarea>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        値の順序 <span class="text-red-500">*</span>
+                    </label>
+                    <p class="text-xs text-gray-500 mb-2">値を順番に追加してください。上から順に表示されます。</p>
+                    <div id="column-order-values-list" class="space-y-2 mb-2">
+                        <!-- 値がここに表示される -->
+                    </div>
+                    <div class="flex gap-2">
+                        <input type="text" id="new-value-input"
+                               class="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-md"
+                               placeholder="値を入力（例: 男）">
+                        <button type="button" onclick="addColumnOrderValue()"
+                                class="px-3 py-2 text-sm text-purple-600 hover:bg-purple-50 rounded border border-purple-300">
+                            追加
+                        </button>
+                    </div>
+                </div>
+
+                <div class="flex justify-end space-x-3 pt-4 border-t border-gray-200">
+                    <button type="button" onclick="closeColumnOrderModal()"
+                            class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
+                        キャンセル
+                    </button>
+                    <button type="submit"
+                            class="px-4 py-2 text-sm font-medium text-white bg-purple-600 rounded-md hover:bg-purple-700">
+                        保存
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const PROJECT_ID = '{{.Project.ID}}';
+
+        // URLパラメータを取得
+        function getURLParams() {
+            const params = new URLSearchParams(window.location.search);
+            return {
+                type: params.get('type') || 'simple',
+                c: params.get('c'),
+                s: params.get('s') === '1',
+                x: params.get('x'),
+                y: params.get('y'),
+                sx: params.get('sx') === '1',
+                sy: params.get('sy') === '1',
+                filter: params.get('filter') || '',
+                chart: params.get('chart') === '1' || params.get('chart') === null, // デフォルトは表示
+                chartMode: params.get('chartMode') || 'count' // デフォルトは件数
+            };
+        }
+
+        // URLパラメータを更新
+        function updateURL(forceChartUpdate = false) {
+            const form = document.getElementById('analysis-form');
+            const formData = new FormData(form);
+            const analysisType = formData.get('analysis_type');
+
+            const params = new URLSearchParams();
+            params.set('type', analysisType);
+
+            if (analysisType === 'simple') {
+                const column = formData.get('column');
+                const split = formData.get('split');
+                if (column) params.set('c', column);
+                if (split) params.set('s', '1');
+            } else {
+                const xColumn = formData.get('x_column');
+                const yColumn = formData.get('y_column');
+                const splitX = formData.get('split_x');
+                const splitY = formData.get('split_y');
+                if (xColumn) params.set('x', xColumn);
+                if (yColumn) params.set('y', yColumn);
+                if (splitX) params.set('sx', '1');
+                if (splitY) params.set('sy', '1');
+            }
+
+            const filter = formData.get('filter');
+            if (filter) params.set('filter', filter);
+
+            // グラフ表示状態
+            if (forceChartUpdate) {
+                const chartArea = document.getElementById('chart-area');
+                if (chartArea && chartArea.classList.contains('hidden')) {
+                    params.set('chart', '0');
+                } else {
+                    params.set('chart', '1');
+                }
+
+                if (window.chartMode) {
+                    params.set('chartMode', window.chartMode);
+                }
+            } else {
+                const currentParams = new URLSearchParams(window.location.search);
+                const currentChart = currentParams.get('chart');
+                if (currentChart === '0' || currentChart === '1') {
+                    params.set('chart', currentChart);
+                } else {
+                    params.set('chart', '1');
+                }
+
+                const currentChartMode = currentParams.get('chartMode');
+                if (currentChartMode) {
+                    params.set('chartMode', currentChartMode);
+                } else {
+                    params.set('chartMode', 'count');
+                }
+            }
+
+            const newURL = window.location.pathname + '?' + params.toString();
+            history.replaceState(null, '', newURL);
+        }
+
+        // 自動集計実行関数
+        window.triggerAnalysis = function(shouldUpdateURL = true) {
+            const form = document.getElementById('analysis-form');
+            const formData = new FormData(form);
+            const analysisType = formData.get('analysis_type');
+
+            // バリデーション
+            if (analysisType === 'simple') {
+                const column = formData.get('column');
+                if (!column) {
+                    return;
+                }
+            } else if (analysisType === 'cross') {
+                const xColumn = formData.get('x_column');
+                const yColumn = formData.get('y_column');
+                if (!xColumn || !yColumn) {
+                    return;
+                }
+            }
+
+            // プロジェクト固有のエンドポイントを使用
+            const endpoint = analysisType === 'simple'
+                ? `/api/projects/${PROJECT_ID}/simpletab`
+                : `/api/projects/${PROJECT_ID}/crosstab`;
+
+            const loadingIndicator = document.getElementById('loading-indicator');
+            loadingIndicator.classList.remove('hidden');
+
+            htmx.ajax('POST', endpoint, {
+                target: '#result-area',
+                swap: 'innerHTML',
+                values: Object.fromEntries(formData)
+            }).then(function() {
+                loadingIndicator.classList.add('hidden');
+                if (shouldUpdateURL) {
+                    updateURL();
+                }
+            }).catch(function() {
+                loadingIndicator.classList.add('hidden');
+            });
+        };
+
+        document.getElementById('analysis-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+        });
+
+        // ページロード時にURLパラメータから状態を復元
+        document.addEventListener('DOMContentLoaded', function() {
+            const urlParams = getURLParams();
+
+            const typeRadio = document.querySelector(`input[name="analysis_type"][value="${urlParams.type}"]`);
+            if (typeRadio && !typeRadio.checked) {
+                typeRadio.checked = true;
+                typeRadio.dispatchEvent(new Event('change'));
+            }
+
+            setTimeout(function() {
+                restoreFormState(urlParams);
+            }, 300);
+        });
+
+        function restoreFormState(urlParams) {
+            if (urlParams.type === 'simple') {
+                if (urlParams.c) {
+                    const columnSelect = document.getElementById('column-select');
+                    if (columnSelect) {
+                        columnSelect.value = urlParams.c;
+                        columnSelect.dispatchEvent(new Event('change'));
+                    }
+                }
+                if (urlParams.s) {
+                    const splitCheckbox = document.querySelector('input[name="split"]');
+                    if (splitCheckbox) {
+                        splitCheckbox.checked = true;
+                    }
+                }
+            } else {
+                if (urlParams.x) {
+                    const xRadio = document.querySelector(`input[name="x_column"][value="${urlParams.x}"]`);
+                    if (xRadio) {
+                        xRadio.checked = true;
+                        xRadio.dispatchEvent(new Event('change'));
+                    }
+                }
+                if (urlParams.y) {
+                    const yRadio = document.querySelector(`input[name="y_column"][value="${urlParams.y}"]`);
+                    if (yRadio) {
+                        yRadio.checked = true;
+                        yRadio.dispatchEvent(new Event('change'));
+                    }
+                }
+                if (urlParams.sx) {
+                    const splitXCheckbox = document.querySelector('input[name="split_x"]');
+                    if (splitXCheckbox) {
+                        splitXCheckbox.checked = true;
+                    }
+                }
+                if (urlParams.sy) {
+                    const splitYCheckbox = document.querySelector('input[name="split_y"]');
+                    if (splitYCheckbox) {
+                        splitYCheckbox.checked = true;
+                    }
+                }
+            }
+
+            if (urlParams.filter) {
+                const filterSelect = document.getElementById('filter-select');
+                if (filterSelect) {
+                    filterSelect.value = urlParams.filter;
+                    filterSelect.dispatchEvent(new Event('change'));
+                }
+            }
+
+            if ((urlParams.type === 'simple' && urlParams.c) ||
+                (urlParams.type === 'cross' && urlParams.x && urlParams.y)) {
+                window.triggerAnalysis(false);
+
+                setTimeout(function() {
+                    updateURL();
+                }, 500);
+            }
+        }
+
+        // アコーディオンの開閉
+        function toggleAccordion(sectionId) {
+            const section = document.getElementById(sectionId);
+            const icon = document.getElementById(sectionId.replace('-section', '-icon'));
+
+            if (section.classList.contains('hidden')) {
+                section.classList.remove('hidden');
+                icon.style.transform = 'rotate(180deg)';
+            } else {
+                section.classList.add('hidden');
+                icon.style.transform = 'rotate(0deg)';
+            }
+        }
+
+        // 派生列一覧の読み込み
+        async function loadDerivedColumns() {
+            try {
+                const response = await fetch(`/api/projects/${PROJECT_ID}/derived-columns`);
+                const columns = await response.json();
+
+                const listEl = document.getElementById('derived-columns-list');
+                const countEl = document.getElementById('derived-columns-count');
+
+                countEl.textContent = columns.length;
+
+                if (columns.length === 0) {
+                    listEl.innerHTML = '<p class="text-xs text-gray-500 text-center py-2">派生列がありません</p>';
+                    return;
+                }
+
+                listEl.innerHTML = columns.map((col, index) => `
+                    <div class="p-2 bg-gray-50 rounded border border-gray-200 text-xs">
+                        <div class="flex justify-between items-start">
+                            <div class="flex-1 cursor-pointer" onclick="openDerivedColumnModal(${index})">
+                                <div class="font-medium text-gray-900">${escapeHtml(col.name)}</div>
+                                <div class="text-gray-500 mt-1">${escapeHtml(col.description || '')}</div>
+                                <div class="text-gray-400 mt-1">タイプ: ${escapeHtml(col.calculation_type || 'rules')}</div>
+                            </div>
+                            <button
+                                onclick="deleteDerivedColumn(${index})"
+                                class="ml-2 text-red-600 hover:text-red-700"
+                                title="削除"
+                            >
+                                ✕
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('Failed to load derived columns:', error);
+            }
+        }
+
+        // フィルタ設定一覧の読み込み
+        async function loadFiltersConfig() {
+            try {
+                const response = await fetch(`/api/projects/${PROJECT_ID}/filters-config`);
+                const filters = await response.json();
+
+                const listEl = document.getElementById('filters-config-list');
+                const countEl = document.getElementById('filters-config-count');
+
+                countEl.textContent = filters.length;
+
+                if (filters.length === 0) {
+                    listEl.innerHTML = '<p class="text-xs text-gray-500 text-center py-2">フィルタがありません</p>';
+                    return;
+                }
+
+                listEl.innerHTML = filters.map((filter, index) => `
+                    <div class="p-2 bg-gray-50 rounded border border-gray-200 text-xs">
+                        <div class="flex justify-between items-start">
+                            <div class="flex-1 cursor-pointer" onclick="openFilterModal(${index})">
+                                <div class="font-medium text-gray-900">${escapeHtml(filter.name)}</div>
+                                <div class="text-gray-500 mt-1">${escapeHtml(filter.description || '')}</div>
+                            </div>
+                            <button
+                                onclick="deleteFilterConfig(${index})"
+                                class="ml-2 text-red-600 hover:text-red-700"
+                                title="削除"
+                            >
+                                ✕
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('Failed to load filters config:', error);
+            }
+        }
+
+        // 派生列削除
+        async function deleteDerivedColumn(index) {
+            if (!confirm('この派生列を削除してもよろしいですか？')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/projects/${PROJECT_ID}/derived-columns/${index}`, {
+                    method: 'DELETE'
+                });
+
+                if (response.ok) {
+                    await loadDerivedColumns();
+                    // 集計設定の列選択を再読み込み
+                    htmx.trigger('#column-selector', 'load');
+                } else {
+                    alert('削除に失敗しました');
+                }
+            } catch (error) {
+                console.error('Failed to delete derived column:', error);
+                alert('削除に失敗しました');
+            }
+        }
+
+        // フィルタ削除
+        async function deleteFilterConfig(index) {
+            if (!confirm('このフィルタを削除してもよろしいですか？')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/projects/${PROJECT_ID}/filters-config/${index}`, {
+                    method: 'DELETE'
+                });
+
+                if (response.ok) {
+                    await loadFiltersConfig();
+                    // 集計設定のフィルタ選択を再読み込み
+                    htmx.trigger('#filter-selector', 'load');
+                } else {
+                    alert('削除に失敗しました');
+                }
+            } catch (error) {
+                console.error('Failed to delete filter config:', error);
+                alert('削除に失敗しました');
+            }
+        }
+
+        // 列順序設定を読み込む
+        async function loadColumnOrders() {
+            try {
+                const response = await fetch(`/api/projects/{{.Project.ID}}/column-orders`);
+                if (!response.ok) throw new Error('Failed to load column orders');
+
+                const columnOrders = await response.json();
+
+                // カウントを更新
+                document.getElementById('column-orders-count').textContent = columnOrders.length;
+
+                // リストを更新
+                const listContainer = document.getElementById('column-orders-list');
+                if (columnOrders.length === 0) {
+                    listContainer.innerHTML = '<p class="text-sm text-gray-500 text-center py-2">列順序が設定されていません</p>';
+                    return;
+                }
+
+                listContainer.innerHTML = columnOrders.map((order, index) => `
+                    <div class="flex items-center justify-between p-2 bg-gray-50 rounded border border-gray-200">
+                        <div class="flex-1">
+                            <div class="text-sm font-medium text-gray-900">${order.column}</div>
+                            ${order.description ? `<div class="text-xs text-gray-500">${order.description}</div>` : ''}
+                            <div class="text-xs text-gray-600 mt-1">${order.values.length}個の値</div>
+                        </div>
+                        <div class="flex gap-1">
+                            <button
+                                onclick="openColumnOrderModal(${index})"
+                                class="p-1 text-blue-600 hover:bg-blue-50 rounded"
+                                title="編集"
+                            >
+                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                </svg>
+                            </button>
+                            <button
+                                onclick="deleteColumnOrder(${index})"
+                                class="p-1 text-red-600 hover:bg-red-50 rounded"
+                                title="削除"
+                            >
+                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('Failed to load column orders:', error);
+            }
+        }
+
+        // 列順序を削除
+        async function deleteColumnOrder(index) {
+            if (!confirm('この列順序設定を削除しますか？')) return;
+
+            try {
+                const response = await fetch(`/api/projects/{{.Project.ID}}/column-orders`);
+                if (!response.ok) throw new Error('Failed to load column orders');
+
+                const columnOrders = await response.json();
+                columnOrders.splice(index, 1);
+
+                const saveResponse = await fetch(`/api/projects/{{.Project.ID}}/column-orders`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(columnOrders)
+                });
+
+                if (saveResponse.ok) {
+                    await loadColumnOrders();
+                } else {
+                    alert('削除に失敗しました');
+                }
+            } catch (error) {
+                console.error('Failed to delete column order:', error);
+                alert('削除に失敗しました');
+            }
+        }
+
+        // Open column order modal (for new or edit)
+        async function openColumnOrderModal(index = null) {
+            const modal = document.getElementById('column-order-modal');
+            const form = document.getElementById('column-order-form');
+            const title = document.getElementById('column-order-modal-title');
+            const indexInput = document.getElementById('column-order-index');
+            const columnSelect = document.getElementById('column-order-column');
+            const descriptionInput = document.getElementById('column-order-description');
+            const valuesList = document.getElementById('column-order-values-list');
+            const newValueInput = document.getElementById('new-value-input');
+
+            // Reset form
+            form.reset();
+            indexInput.value = index !== null ? index : '';
+            valuesList.innerHTML = '';
+            newValueInput.value = '';
+
+            // Load column options
+            try {
+                const response = await fetch(`/api/projects/${PROJECT_ID}/columns-json`);
+                const columns = await response.json();
+
+                columnSelect.innerHTML = '<option value="">列を選択してください</option>';
+                columns.forEach(col => {
+                    const option = document.createElement('option');
+                    option.value = col.Name;
+                    option.textContent = col.Name;
+                    columnSelect.appendChild(option);
+                });
+            } catch (error) {
+                console.error('Failed to load columns:', error);
+            }
+
+            if (index !== null) {
+                // Edit mode
+                title.textContent = '列順序を編集';
+
+                try {
+                    const response = await fetch(`/api/projects/${PROJECT_ID}/column-orders`);
+                    const columnOrders = await response.json();
+                    const order = columnOrders[index];
+
+                    if (order) {
+                        columnSelect.value = order.column || '';
+                        descriptionInput.value = order.description || '';
+
+                        // Display existing values
+                        if (order.values && order.values.length > 0) {
+                            order.values.forEach(value => {
+                                addValueToList(value);
+                            });
+                        }
+                    }
+                } catch (error) {
+                    console.error('Failed to load column order data:', error);
+                }
+            } else {
+                // New mode
+                title.textContent = '列順序を追加';
+            }
+
+            // Show modal
+            modal.classList.remove('hidden');
+            document.body.classList.add('modal-open');
+        }
+
+        // Close column order modal
+        function closeColumnOrderModal() {
+            const modal = document.getElementById('column-order-modal');
+            modal.classList.add('hidden');
+            document.body.classList.remove('modal-open');
+        }
+
+        // Add a value to the values list
+        function addColumnOrderValue() {
+            const input = document.getElementById('new-value-input');
+            const value = input.value.trim();
+
+            if (value) {
+                addValueToList(value);
+                input.value = '';
+            }
+        }
+
+        // Helper function to add a value to the list with UI
+        function addValueToList(value) {
+            const valuesList = document.getElementById('column-order-values-list');
+            const valueId = `value-${Date.now()}-${Math.random()}`;
+
+            const valueHTML = `
+                <div class="flex items-center justify-between p-2 bg-gray-50 rounded border border-gray-200" id="${valueId}" data-value="${escapeHtml(value)}">
+                    <span class="text-sm">${escapeHtml(value)}</span>
+                    <div class="flex gap-1">
+                        <button type="button" onclick="moveValueUp('${valueId}')" class="p-1 text-gray-600 hover:bg-gray-200 rounded" title="上に移動">
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7" />
+                            </svg>
+                        </button>
+                        <button type="button" onclick="moveValueDown('${valueId}')" class="p-1 text-gray-600 hover:bg-gray-200 rounded" title="下に移動">
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </button>
+                        <button type="button" onclick="removeValue('${valueId}')" class="p-1 text-red-600 hover:bg-red-50 rounded" title="削除">
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            valuesList.insertAdjacentHTML('beforeend', valueHTML);
+        }
+
+        // Move value up in the list
+        function moveValueUp(valueId) {
+            const element = document.getElementById(valueId);
+            const previous = element.previousElementSibling;
+            if (previous) {
+                element.parentNode.insertBefore(element, previous);
+            }
+        }
+
+        // Move value down in the list
+        function moveValueDown(valueId) {
+            const element = document.getElementById(valueId);
+            const next = element.nextElementSibling;
+            if (next) {
+                element.parentNode.insertBefore(next, element);
+            }
+        }
+
+        // Remove value from the list
+        function removeValue(valueId) {
+            const element = document.getElementById(valueId);
+            if (element) {
+                element.remove();
+            }
+        }
+
+        // Handle Enter key in the new value input
+        document.addEventListener('DOMContentLoaded', function() {
+            const newValueInput = document.getElementById('new-value-input');
+            if (newValueInput) {
+                newValueInput.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        addColumnOrderValue();
+                    }
+                });
+            }
+
+            // Column order form submit handler
+            const columnOrderForm = document.getElementById('column-order-form');
+            if (columnOrderForm) {
+                columnOrderForm.addEventListener('submit', async function(e) {
+                    e.preventDefault();
+
+                    const index = document.getElementById('column-order-index').value;
+                    const column = document.getElementById('column-order-column').value;
+                    const description = document.getElementById('column-order-description').value;
+
+                    // Collect values from the list
+                    const valueElements = document.querySelectorAll('#column-order-values-list > div');
+                    const values = [];
+                    valueElements.forEach(elem => {
+                        const value = elem.getAttribute('data-value');
+                        if (value) {
+                            values.push(value);
+                        }
+                    });
+
+                    // Validation
+                    if (!column) {
+                        alert('列名を選択してください');
+                        return;
+                    }
+                    if (values.length === 0) {
+                        alert('少なくとも1つの値を追加してください');
+                        return;
+                    }
+
+                    const data = {
+                        column: column,
+                        description: description,
+                        values: values
+                    };
+
+                    try {
+                        // Load current column orders
+                        const response = await fetch(`/api/projects/${PROJECT_ID}/column-orders`);
+                        if (!response.ok) throw new Error('Failed to load column orders');
+
+                        let columnOrders = await response.json();
+
+                        if (index !== '') {
+                            // Edit mode - update existing
+                            columnOrders[parseInt(index)] = data;
+                        } else {
+                            // New mode - add new
+                            columnOrders.push(data);
+                        }
+
+                        // Save all column orders
+                        const saveResponse = await fetch(`/api/projects/${PROJECT_ID}/column-orders`, {
+                            method: 'PUT',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify(columnOrders)
+                        });
+
+                        if (saveResponse.ok) {
+                            closeColumnOrderModal();
+                            await loadColumnOrders();
+                            alert('列順序を保存しました');
+                        } else {
+                            const errorText = await saveResponse.text();
+                            alert('保存に失敗しました: ' + errorText);
+                        }
+                    } catch (error) {
+                        console.error('Failed to save column order:', error);
+                        alert('保存に失敗しました: ' + error.message);
+                    }
+                });
+            }
+        });
+
+        // 派生列モーダルを開く（新規追加）
+        function openDerivedColumnModal(index = null) {
+            const modal = document.getElementById('derived-column-modal');
+            const form = document.getElementById('derived-column-form');
+            const title = document.getElementById('derived-column-modal-title');
+            const indexInput = document.getElementById('derived-column-index');
+
+            // フォームをリセット
+            form.reset();
+            indexInput.value = index !== null ? index : '';
+
+            if (index !== null) {
+                // 編集モード
+                title.textContent = '派生列を編集';
+                // 既存データを読み込んでフォームに設定
+                loadDerivedColumnData(index);
+            } else {
+                // 新規追加モード
+                title.textContent = '派生列を追加';
+            }
+
+            // モーダル表示
+            modal.classList.remove('hidden');
+            document.body.classList.add('modal-open');
+
+            // 初期状態のフォームを表示
+            updateDerivedColumnFormType();
+        }
+
+        // 派生列モーダルを閉じる
+        function closeDerivedColumnModal() {
+            const modal = document.getElementById('derived-column-modal');
+            modal.classList.add('hidden');
+            document.body.classList.remove('modal-open');
+        }
+
+        // テンプレートモーダルを開く
+        async function openTemplateModal() {
+            const modal = document.getElementById('template-modal');
+            modal.classList.remove('hidden');
+            document.body.classList.add('modal-open');
+
+            // テンプレートを読み込んで表示
+            await loadTemplates();
+        }
+
+        // テンプレートモーダルを閉じる
+        function closeTemplateModal() {
+            const modal = document.getElementById('template-modal');
+            modal.classList.add('hidden');
+            document.body.classList.remove('modal-open');
+        }
+
+        // テンプレート一覧を読み込む
+        async function loadTemplates() {
+            try {
+                const response = await fetch(`/api/projects/${PROJECT_ID}/derived-columns/templates`);
+                const templates = await response.json();
+
+                const templateList = document.getElementById('template-list');
+                templateList.innerHTML = '';
+
+                if (templates.length === 0) {
+                    templateList.innerHTML = '<p class="text-gray-500 text-sm">利用可能なテンプレートがありません</p>';
+                    return;
+                }
+
+                templates.forEach((template, index) => {
+                    const div = document.createElement('div');
+                    div.className = 'p-3 border border-gray-200 rounded bg-gray-50 hover:bg-gray-100';
+
+                    const calcTypeLabel = getCalcTypeLabel(template.calculation_type);
+
+                    div.innerHTML = `
+                        <label class="flex items-start cursor-pointer">
+                            <input type="checkbox" class="template-checkbox mt-1 mr-3" value="${index}">
+                            <div class="flex-1">
+                                <div class="font-medium text-gray-900">${escapeHtml(template.name)}</div>
+                                <div class="text-xs text-gray-600 mt-1">${escapeHtml(template.description || '')}</div>
+                                <div class="text-xs text-blue-600 mt-1">タイプ: ${calcTypeLabel}</div>
+                            </div>
+                        </label>
+                    `;
+
+                    templateList.appendChild(div);
+                });
+            } catch (error) {
+                console.error('Failed to load templates:', error);
+                alert('テンプレートの読み込みに失敗しました');
+            }
+        }
+
+        // 計算タイプのラベルを取得
+        function getCalcTypeLabel(calcType) {
+            const labels = {
+                'rules': 'ルールベース',
+                'grade_from_birthdate': '学年計算',
+                'school_type_from_birthdate': '学校種別計算',
+                'merge': '複数列統合'
+            };
+            return labels[calcType] || calcType;
+        }
+
+        // 選択されたテンプレートをインポート
+        async function importSelectedTemplates() {
+            const checkboxes = document.querySelectorAll('.template-checkbox:checked');
+
+            if (checkboxes.length === 0) {
+                alert('テンプレートを選択してください');
+                return;
+            }
+
+            const indices = Array.from(checkboxes).map(cb => parseInt(cb.value));
+
+            try {
+                const response = await fetch(`/api/projects/${PROJECT_ID}/derived-columns/import`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ indices: indices })
+                });
+
+                if (response.ok) {
+                    const result = await response.json();
+                    closeTemplateModal();
+                    await loadDerivedColumns();
+                    htmx.trigger('#column-selector', 'load');
+                    alert(`${result.imported_count}件のテンプレートをインポートしました`);
+                } else {
+                    alert('テンプレートのインポートに失敗しました');
+                }
+            } catch (error) {
+                console.error('Failed to import templates:', error);
+                alert('テンプレートのインポートに失敗しました');
+            }
+        }
+
+        // 派生列データを読み込む（編集用）
+        async function loadDerivedColumnData(index) {
+            try {
+                const response = await fetch(`/api/projects/${PROJECT_ID}/derived-columns`);
+                const columns = await response.json();
+                const column = columns[index];
+
+                if (column) {
+                    document.getElementById('derived-column-name').value = column.name || '';
+                    document.getElementById('derived-column-description').value = column.description || '';
+                    document.getElementById('derived-column-calc-type').value = column.calculation_type || 'rules';
+
+                    // フォームを更新してから、タイプ別のデータを読み込む
+                    updateDerivedColumnFormType();
+
+                    // 少し待ってからデータを読み込む（DOM更新を待つ）
+                    await new Promise(resolve => setTimeout(resolve, 100));
+
+                    // タイプ別のデータ読み込み
+                    const calcType = column.calculation_type || 'rules';
+                    switch (calcType) {
+                        case 'merge':
+                            // セパレータを設定
+                            if (column.parameters && column.parameters.separator) {
+                                document.getElementById('merge-separator').value = column.parameters.separator;
+                            }
+                            // チェックボックスを設定
+                            if (column.source_columns && column.source_columns.length > 0) {
+                                column.source_columns.forEach(colName => {
+                                    const checkbox = Array.from(document.querySelectorAll('.merge-column-checkbox'))
+                                        .find(cb => cb.value === colName);
+                                    if (checkbox) {
+                                        checkbox.checked = true;
+                                    }
+                                });
+                            }
+                            break;
+
+                        case 'grade_from_birthdate':
+                            if (column.parameters) {
+                                if (column.parameters.target_year) {
+                                    document.getElementById('grade-target-year').value = column.parameters.target_year;
+                                }
+                                if (column.parameters.birthdate_column) {
+                                    document.getElementById('grade-birthdate-column').value = column.parameters.birthdate_column;
+                                }
+                            }
+                            break;
+
+                        case 'school_type_from_birthdate':
+                            if (column.parameters) {
+                                if (column.parameters.target_year) {
+                                    document.getElementById('school-target-year').value = column.parameters.target_year;
+                                }
+                                if (column.parameters.birthdate_column) {
+                                    document.getElementById('school-birthdate-column').value = column.parameters.birthdate_column;
+                                }
+                                if (column.parameters.labels) {
+                                    const labels = column.parameters.labels;
+                                    if (labels.elementary) {
+                                        document.getElementById('school-label-elementary').value = labels.elementary;
+                                    }
+                                    if (labels.junior_high) {
+                                        document.getElementById('school-label-junior').value = labels.junior_high;
+                                    }
+                                    if (labels.other) {
+                                        document.getElementById('school-label-other').value = labels.other;
+                                    }
+                                }
+                            }
+                            break;
+
+                        case 'rules':
+                            // 既存のルールをクリア
+                            const rulesList = document.getElementById('rules-list');
+                            rulesList.innerHTML = '';
+
+                            // ルールを追加
+                            if (column.rules && column.rules.length > 0) {
+                                column.rules.forEach(rule => {
+                                    addRule();
+                                    const ruleElements = document.querySelectorAll('#rules-list > div[id^="rule-"]');
+                                    const lastRule = ruleElements[ruleElements.length - 1];
+
+                                    // ラベルとデフォルトフラグを設定
+                                    lastRule.querySelector('.rule-label').value = rule.label || '';
+                                    lastRule.querySelector('.rule-is-default').checked = rule.is_default || false;
+
+                                    // 条件をクリアして追加
+                                    const conditionsContainer = lastRule.querySelector('.rule-conditions');
+                                    conditionsContainer.innerHTML = '';
+
+                                    if (rule.conditions && rule.conditions.length > 0) {
+                                        rule.conditions.forEach(cond => {
+                                            const ruleId = lastRule.id;
+                                            addCondition(ruleId);
+
+                                            const condElements = conditionsContainer.querySelectorAll('div[id^="condition-"]');
+                                            const lastCond = condElements[condElements.length - 1];
+
+                                            lastCond.querySelector('.cond-column').value = cond.column || '';
+                                            lastCond.querySelector('.cond-operator').value = cond.operator || 'equals';
+
+                                            // 値を設定（配列の場合はカンマ区切りに変換）
+                                            if (cond.values) {
+                                                lastCond.querySelector('.cond-value').value = cond.values.join(', ');
+                                            } else if (cond.value) {
+                                                lastCond.querySelector('.cond-value').value = cond.value;
+                                            }
+                                        });
+                                    }
+                                });
+                            } else {
+                                // ルールがない場合は空のルールを1つ追加
+                                addRule();
+                            }
+                            break;
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to load derived column data:', error);
+            }
+        }
+
+        // 派生列フォームのタイプに応じた入力欄を表示
+        function updateDerivedColumnFormType() {
+            const calcType = document.getElementById('derived-column-calc-type').value;
+            const formArea = document.getElementById('derived-column-type-specific-form');
+
+            switch (calcType) {
+                case 'merge':
+                    formArea.innerHTML = `
+                        <div class="p-3 bg-gray-50 rounded border border-gray-200">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                結合する列（複数選択可）
+                            </label>
+                            <div id="merge-columns-list" class="space-y-1 text-sm">
+                                <p class="text-gray-500">列情報を読み込み中...</p>
+                            </div>
+                            <div class="mt-3">
+                                <label class="block text-xs font-medium text-gray-600 mb-1">
+                                    セパレータ（省略可、デフォルト: |||）
+                                </label>
+                                <input type="text" id="merge-separator"
+                                       class="w-full px-2 py-1 text-sm border border-gray-300 rounded"
+                                       placeholder="|||">
+                            </div>
+                        </div>
+                    `;
+                    loadColumnsForMerge();
+                    break;
+
+                case 'grade_from_birthdate':
+                    formArea.innerHTML = `
+                        <div class="p-3 bg-gray-50 rounded border border-gray-200 space-y-3">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">
+                                    対象年度
+                                </label>
+                                <input type="number" id="grade-target-year"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded"
+                                       value="2025" min="2000" max="2100">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">
+                                    生年月日列名
+                                </label>
+                                <input type="text" id="grade-birthdate-column"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded"
+                                       value="生年月日" placeholder="生年月日">
+                            </div>
+                        </div>
+                    `;
+                    break;
+
+                case 'school_type_from_birthdate':
+                    formArea.innerHTML = `
+                        <div class="p-3 bg-gray-50 rounded border border-gray-200 space-y-3">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">
+                                    対象年度
+                                </label>
+                                <input type="number" id="school-target-year"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded"
+                                       value="2025" min="2000" max="2100">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">
+                                    生年月日列名
+                                </label>
+                                <input type="text" id="school-birthdate-column"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded"
+                                       value="生年月日" placeholder="生年月日">
+                            </div>
+                            <div class="grid grid-cols-3 gap-2">
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-600 mb-1">
+                                        小学生ラベル
+                                    </label>
+                                    <input type="text" id="school-label-elementary"
+                                           class="w-full px-2 py-1 text-sm border border-gray-300 rounded"
+                                           value="小学生" placeholder="小学生">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-600 mb-1">
+                                        中学生ラベル
+                                    </label>
+                                    <input type="text" id="school-label-junior"
+                                           class="w-full px-2 py-1 text-sm border border-gray-300 rounded"
+                                           value="中学生" placeholder="中学生">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-600 mb-1">
+                                        その他ラベル
+                                    </label>
+                                    <input type="text" id="school-label-other"
+                                           class="w-full px-2 py-1 text-sm border border-gray-300 rounded"
+                                           value="その他" placeholder="その他">
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    break;
+
+                case 'rules':
+                    formArea.innerHTML = `
+                        <div class="p-3 bg-gray-50 rounded border border-gray-200">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                ルール（条件と分類）
+                            </label>
+                            <div id="rules-list" class="space-y-2">
+                                <!-- ルールがここに表示される -->
+                            </div>
+                            <button type="button" onclick="addRule()"
+                                    class="mt-2 px-3 py-1 text-sm text-blue-600 hover:bg-blue-50 rounded border border-blue-300">
+                                + ルールを追加
+                            </button>
+                        </div>
+                    `;
+                    // 初期状態で1つルールを追加
+                    setTimeout(() => addRule(), 0);
+                    break;
+            }
+        }
+
+        // 派生列フォームの送信
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('derived-column-form').addEventListener('submit', async function(e) {
+                e.preventDefault();
+
+                const index = document.getElementById('derived-column-index').value;
+                const name = document.getElementById('derived-column-name').value;
+                const description = document.getElementById('derived-column-description').value;
+                const calcType = document.getElementById('derived-column-calc-type').value;
+
+                // 基本的なデータ構造
+                const data = {
+                    name: name,
+                    description: description,
+                    calculation_type: calcType,
+                    source_columns: [],
+                    parameters: {},
+                    rules: []
+                };
+
+                // タイプ別のデータを収集
+                try {
+                    switch (calcType) {
+                        case 'merge':
+                            // チェックされた列を収集
+                            const checkedColumns = Array.from(document.querySelectorAll('.merge-column-checkbox:checked'))
+                                .map(cb => cb.value);
+                            data.source_columns = checkedColumns;
+                            // セパレータを収集
+                            const separator = document.getElementById('merge-separator').value.trim();
+                            if (separator) {
+                                data.parameters.separator = separator;
+                            }
+                            break;
+
+                        case 'grade_from_birthdate':
+                            const gradeYear = parseInt(document.getElementById('grade-target-year').value);
+                            const gradeBirthdateCol = document.getElementById('grade-birthdate-column').value.trim();
+                            data.parameters.target_year = gradeYear;
+                            data.parameters.birthdate_column = gradeBirthdateCol;
+                            break;
+
+                        case 'school_type_from_birthdate':
+                            const schoolYear = parseInt(document.getElementById('school-target-year').value);
+                            const schoolBirthdateCol = document.getElementById('school-birthdate-column').value.trim();
+                            const elemLabel = document.getElementById('school-label-elementary').value.trim();
+                            const juniorLabel = document.getElementById('school-label-junior').value.trim();
+                            const otherLabel = document.getElementById('school-label-other').value.trim();
+
+                            data.parameters.target_year = schoolYear;
+                            data.parameters.birthdate_column = schoolBirthdateCol;
+                            data.parameters.labels = {
+                                elementary: elemLabel || '小学生',
+                                junior_high: juniorLabel || '中学生',
+                                other: otherLabel || 'その他'
+                            };
+                            break;
+
+                        case 'rules':
+                            // 全てのルールを収集
+                            const ruleElements = document.querySelectorAll('#rules-list > div[id^="rule-"]');
+                            const rules = [];
+
+                            ruleElements.forEach(ruleEl => {
+                                const labelInput = ruleEl.querySelector('.rule-label');
+                                const isDefaultCheckbox = ruleEl.querySelector('.rule-is-default');
+                                const conditionElements = ruleEl.querySelectorAll('.rule-conditions > div');
+
+                                const label = labelInput.value.trim();
+                                if (!label) return; // ラベルが空なら無視
+
+                                const conditions = [];
+                                conditionElements.forEach(condEl => {
+                                    const column = condEl.querySelector('.cond-column').value.trim();
+                                    const operator = condEl.querySelector('.cond-operator').value;
+                                    const value = condEl.querySelector('.cond-value').value.trim();
+
+                                    if (column && value) {
+                                        const condition = {
+                                            column: column,
+                                            operator: operator
+                                        };
+
+                                        // operatorに応じて値を配列または文字列で格納
+                                        if (operator === 'in' || operator === 'starts_with_any') {
+                                            condition.values = value.split(',').map(v => v.trim());
+                                        } else {
+                                            condition.value = value;
+                                        }
+
+                                        conditions.push(condition);
+                                    }
+                                });
+
+                                rules.push({
+                                    label: label,
+                                    conditions: conditions,
+                                    is_default: isDefaultCheckbox.checked
+                                });
+                            });
+
+                            data.rules = rules;
+                            break;
+                    }
+
+                    const url = index !== ''
+                        ? `/api/projects/${PROJECT_ID}/derived-columns/${index}`
+                        : `/api/projects/${PROJECT_ID}/derived-columns`;
+                    const method = index !== '' ? 'PUT' : 'POST';
+
+                    const response = await fetch(url, {
+                        method: method,
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(data)
+                    });
+
+                    if (response.ok) {
+                        closeDerivedColumnModal();
+                        await loadDerivedColumns();
+                        htmx.trigger('#column-selector', 'load');
+                        alert('派生列を保存しました');
+                    } else {
+                        const errorText = await response.text();
+                        alert('保存に失敗しました: ' + errorText);
+                    }
+                } catch (error) {
+                    console.error('Failed to save derived column:', error);
+                    alert('保存に失敗しました: ' + error.message);
+                }
+            });
+        });
+
+        // フィルタモーダルを開く（新規追加）
+        function openFilterModal(index = null) {
+            const modal = document.getElementById('filter-modal');
+            const form = document.getElementById('filter-form');
+            const title = document.getElementById('filter-modal-title');
+            const indexInput = document.getElementById('filter-index');
+
+            // フォームをリセット
+            form.reset();
+            indexInput.value = index !== null ? index : '';
+
+            if (index !== null) {
+                // 編集モード
+                title.textContent = 'フィルタを編集';
+                // 既存データを読み込んでフォームに設定
+                loadFilterData(index);
+            } else {
+                // 新規追加モード
+                title.textContent = 'フィルタを追加';
+                // 空の条件を1つ追加
+                document.getElementById('filter-conditions-list').innerHTML = '';
+                addFilterCondition();
+            }
+
+            // モーダル表示
+            modal.classList.remove('hidden');
+            document.body.classList.add('modal-open');
+        }
+
+        // フィルタモーダルを閉じる
+        function closeFilterModal() {
+            const modal = document.getElementById('filter-modal');
+            modal.classList.add('hidden');
+            document.body.classList.remove('modal-open');
+        }
+
+        // フィルタデータを読み込む（編集用）
+        async function loadFilterData(index) {
+            try {
+                const response = await fetch(`/api/projects/${PROJECT_ID}/filters-config`);
+                const filters = await response.json();
+                const filter = filters[index];
+
+                if (filter) {
+                    document.getElementById('filter-name').value = filter.name || '';
+                    document.getElementById('filter-description').value = filter.description || '';
+
+                    // 条件を表示
+                    const conditionsList = document.getElementById('filter-conditions-list');
+                    conditionsList.innerHTML = '';
+                    if (filter.conditions && filter.conditions.length > 0) {
+                        filter.conditions.forEach(cond => {
+                            addFilterCondition(cond);
+                        });
+                    } else {
+                        addFilterCondition();
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to load filter data:', error);
+            }
+        }
+
+        // フィルタ条件を追加
+        let filterConditionCounter = 0;
+        function addFilterCondition(condition = null) {
+            const conditionsList = document.getElementById('filter-conditions-list');
+            const conditionId = `filter-condition-${filterConditionCounter++}`;
+
+            const conditionHTML = `
+                <div class="p-3 bg-gray-50 rounded border border-gray-200" id="${conditionId}">
+                    <div class="flex justify-between items-start mb-2">
+                        <label class="text-sm font-medium text-gray-700">条件 ${filterConditionCounter}</label>
+                        <button type="button" onclick="removeFilterCondition('${conditionId}')"
+                                class="text-red-600 hover:text-red-700 text-sm">
+                            削除
+                        </button>
+                    </div>
+                    <div class="space-y-2">
+                        <div>
+                            <label class="block text-xs text-gray-600 mb-1">列名</label>
+                            <input type="text" class="filter-condition-column w-full px-2 py-1 text-sm border border-gray-300 rounded"
+                                   value="${condition?.column || ''}" placeholder="例: 学年" required>
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-600 mb-1">含む値（カンマ区切り）</label>
+                            <input type="text" class="filter-condition-include w-full px-2 py-1 text-sm border border-gray-300 rounded"
+                                   value="${condition?.include_values?.join(', ') || ''}" placeholder="例: 小1, 小2, 小3">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-600 mb-1">除外する値（カンマ区切り）</label>
+                            <input type="text" class="filter-condition-exclude w-full px-2 py-1 text-sm border border-gray-300 rounded"
+                                   value="${condition?.exclude_values?.join(', ') || ''}" placeholder="例: データなし">
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            conditionsList.insertAdjacentHTML('beforeend', conditionHTML);
+        }
+
+        // フィルタ条件を削除
+        function removeFilterCondition(conditionId) {
+            const element = document.getElementById(conditionId);
+            if (element) {
+                element.remove();
+            }
+        }
+
+        // フィルタフォームの送信
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('filter-form').addEventListener('submit', async function(e) {
+                e.preventDefault();
+
+                const index = document.getElementById('filter-index').value;
+                const name = document.getElementById('filter-name').value;
+                const description = document.getElementById('filter-description').value;
+
+                // 条件を収集
+                const conditionElements = document.querySelectorAll('#filter-conditions-list > div');
+                const conditions = [];
+
+                conditionElements.forEach(elem => {
+                    const column = elem.querySelector('.filter-condition-column').value.trim();
+                    const includeStr = elem.querySelector('.filter-condition-include').value.trim();
+                    const excludeStr = elem.querySelector('.filter-condition-exclude').value.trim();
+
+                    if (column) {
+                        const cond = { column: column };
+
+                        if (includeStr) {
+                            cond.include_values = includeStr.split(',').map(v => v.trim()).filter(v => v);
+                        }
+
+                        if (excludeStr) {
+                            cond.exclude_values = excludeStr.split(',').map(v => v.trim()).filter(v => v);
+                        }
+
+                        conditions.push(cond);
+                    }
+                });
+
+                const data = {
+                    name: name,
+                    description: description,
+                    conditions: conditions
+                };
+
+                try {
+                    const url = index !== ''
+                        ? `/api/projects/${PROJECT_ID}/filters-config/${index}`
+                        : `/api/projects/${PROJECT_ID}/filters-config`;
+                    const method = index !== '' ? 'PUT' : 'POST';
+
+                    const response = await fetch(url, {
+                        method: method,
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(data)
+                    });
+
+                    if (response.ok) {
+                        closeFilterModal();
+                        await loadFiltersConfig();
+                        htmx.trigger('#filter-selector', 'load');
+                        alert('フィルタを保存しました');
+                    } else {
+                        alert('保存に失敗しました');
+                    }
+                } catch (error) {
+                    console.error('Failed to save filter:', error);
+                    alert('保存に失敗しました');
+                }
+            });
+        });
+
+        // merge用に列リストを読み込む
+        async function loadColumnsForMerge() {
+            try {
+                const response = await fetch(`/api/projects/${PROJECT_ID}/columns-json`);
+                const columns = await response.json();
+
+                const listEl = document.getElementById('merge-columns-list');
+                listEl.innerHTML = columns.map((col, index) => `
+                    <label class="flex items-center">
+                        <input type="checkbox" class="merge-column-checkbox mr-2" value="${escapeHtml(col.Name)}">
+                        <span>${escapeHtml(col.Name)}</span>
+                    </label>
+                `).join('');
+            } catch (error) {
+                console.error('Failed to load columns:', error);
+            }
+        }
+
+        // ルールを追加（rulesタイプ用）
+        let ruleCounter = 0;
+        function addRule() {
+            const rulesList = document.getElementById('rules-list');
+            const ruleId = `rule-${ruleCounter++}`;
+
+            const ruleHTML = `
+                <div class="p-2 bg-white rounded border border-gray-300" id="${ruleId}">
+                    <div class="flex justify-between items-start mb-2">
+                        <input type="text" class="rule-label flex-1 px-2 py-1 text-sm border border-gray-300 rounded mr-2"
+                               placeholder="ラベル（例: 東京23区）" required>
+                        <button type="button" onclick="removeRule('${ruleId}')"
+                                class="text-red-600 hover:text-red-700 text-sm">
+                            削除
+                        </button>
+                    </div>
+                    <div class="rule-conditions space-y-1">
+                        <!-- 条件がここに表示される -->
+                    </div>
+                    <button type="button" onclick="addCondition('${ruleId}')"
+                            class="mt-1 px-2 py-1 text-xs text-blue-600 hover:bg-blue-50 rounded border border-blue-300">
+                        + 条件を追加
+                    </button>
+                    <label class="flex items-center mt-2 text-xs">
+                        <input type="checkbox" class="rule-is-default mr-1">
+                        <span>デフォルトルール（条件に一致しない場合）</span>
+                    </label>
+                </div>
+            `;
+
+            rulesList.insertAdjacentHTML('beforeend', ruleHTML);
+        }
+
+        // ルールを削除
+        function removeRule(ruleId) {
+            const element = document.getElementById(ruleId);
+            if (element) {
+                element.remove();
+            }
+        }
+
+        // 条件を追加（ルール内）
+        let conditionCounter = 0;
+        function addCondition(ruleId) {
+            const rule = document.getElementById(ruleId);
+            const conditionsContainer = rule.querySelector('.rule-conditions');
+            const conditionId = `condition-${conditionCounter++}`;
+
+            const conditionHTML = `
+                <div class="flex items-center gap-1 text-xs" id="${conditionId}">
+                    <input type="text" class="cond-column flex-1 px-2 py-1 border border-gray-300 rounded"
+                           placeholder="列名" required>
+                    <select class="cond-operator px-2 py-1 border border-gray-300 rounded">
+                        <option value="equals">等しい</option>
+                        <option value="starts_with">で始まる</option>
+                        <option value="starts_with_any">いずれかで始まる</option>
+                        <option value="contains">を含む</option>
+                        <option value="in">いずれかに一致</option>
+                    </select>
+                    <input type="text" class="cond-value flex-1 px-2 py-1 border border-gray-300 rounded"
+                           placeholder="値（複数の場合はカンマ区切り）" required>
+                    <button type="button" onclick="removeCondition('${conditionId}')"
+                            class="text-red-600 hover:text-red-700">
+                        ×
+                    </button>
+                </div>
+            `;
+
+            conditionsContainer.insertAdjacentHTML('beforeend', conditionHTML);
+        }
+
+        // 条件を削除
+        function removeCondition(conditionId) {
+            const element = document.getElementById(conditionId);
+            if (element) {
+                element.remove();
+            }
+        }
+
+        // HTMLエスケープ
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // ページロード時に一覧を読み込み
+        document.addEventListener('DOMContentLoaded', function() {
+            loadDerivedColumns();
+            loadFiltersConfig();
+            loadColumnOrders();
+        });
+    </script>
+</body>
+</html>

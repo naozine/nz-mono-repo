@@ -1,0 +1,62 @@
+{{define "base.html"}}
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calcanke - アンケートデータ分析ツール</title>
+
+    <!-- Tailwind CSS (CDN) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- htmx (CDN) -->
+    <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+
+    <!-- _hyperscript (CDN) -->
+    <script src="https://unpkg.com/hyperscript.org@0.9.12"></script>
+
+    <!-- Chart.js (CDN) -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+    <style>
+        /* htmxのインジケーター */
+        .htmx-indicator {
+            display: none;
+        }
+        .htmx-request .htmx-indicator {
+            display: inline;
+        }
+        .htmx-request.htmx-indicator {
+            display: inline;
+        }
+
+        /* モーダルが開いている時はstickyを無効化 */
+        body.modal-open .sticky {
+            position: relative !important;
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <!-- ヘッダー -->
+    <header class="bg-white shadow">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            <h1 class="text-2xl font-bold text-gray-900">
+                Calcanke - アンケートデータ分析ツール
+            </h1>
+        </div>
+    </header>
+
+    <!-- メインコンテンツ -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {{template "content" .}}
+    </main>
+
+    <!-- フッター -->
+    <footer class="bg-white mt-auto border-t border-gray-200">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 text-center text-sm text-gray-500">
+            Calcanke v1.0
+        </div>
+    </footer>
+</body>
+</html>
+{{end}}

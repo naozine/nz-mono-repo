@@ -89,3 +89,33 @@ type SimpletabRow struct {
 	Count      int
 	Percentage float64
 }
+
+// SortByAnalyzer は列の値の表示順序に従って行をソートする
+func (r *SimpletabResult) SortByAnalyzer(a *Analyzer) {
+	if a == nil {
+		return
+	}
+
+	// 列の値の順序を取得
+	orderMap := a.GetValueOrder(r.Column)
+
+	// カスタム順序でソート
+	sortByOrderForSimpletab(r.Rows, orderMap)
+}
+
+// CrosstabPivot はクロス集計のピボット表示用データ
+type CrosstabPivot struct {
+	XColumn string
+	YColumn string
+	XValues []string                           // X軸の値リスト（ソート済み）
+	YValues []string                           // Y軸の値リスト（ソート済み）
+	Matrix  map[string]map[string]CrosstabCell // [X値][Y値] -> Cell
+	Total   int
+}
+
+// CrosstabCell はピボット表の1セル
+type CrosstabCell struct {
+	Count      int
+	Percentage float64
+	Exists     bool // データが存在するか（0件とデータなしを区別）
+}

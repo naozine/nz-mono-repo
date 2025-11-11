@@ -15,27 +15,27 @@ type DerivedColumnConfig struct {
 
 // DerivedColumn は1つの派生列の定義
 type DerivedColumn struct {
-	Name            string                 `yaml:"name"`
-	Description     string                 `yaml:"description"`
-	SourceColumns   []string               `yaml:"source_columns"`
-	CalculationType string                 `yaml:"calculation_type"` // "rules" または "grade_from_birthdate"
-	Parameters      map[string]interface{} `yaml:"parameters"`       // 計算パラメータ
-	Rules           []Rule                 `yaml:"rules"`            // calculation_type="rules"の場合
+	Name            string                 `yaml:"name" json:"name"`
+	Description     string                 `yaml:"description" json:"description"`
+	SourceColumns   []string               `yaml:"source_columns" json:"source_columns"`
+	CalculationType string                 `yaml:"calculation_type" json:"calculation_type"` // "rules" または "grade_from_birthdate"
+	Parameters      map[string]interface{} `yaml:"parameters" json:"parameters"`             // 計算パラメータ
+	Rules           []Rule                 `yaml:"rules" json:"rules"`                       // calculation_type="rules"の場合
 }
 
 // Rule は分類ルール
 type Rule struct {
-	Label      string      `yaml:"label"`
-	Conditions []Condition `yaml:"conditions"`
-	IsDefault  bool        `yaml:"is_default"`
+	Label      string      `yaml:"label" json:"label"`
+	Conditions []Condition `yaml:"conditions" json:"conditions"`
+	IsDefault  bool        `yaml:"is_default" json:"is_default"`
 }
 
 // Condition は条件
 type Condition struct {
-	Column   string   `yaml:"column"`
-	Operator string   `yaml:"operator"`
-	Value    string   `yaml:"value"`
-	Values   []string `yaml:"values"`
+	Column   string   `yaml:"column" json:"column"`
+	Operator string   `yaml:"operator" json:"operator"`
+	Value    string   `yaml:"value" json:"value"`
+	Values   []string `yaml:"values" json:"values"`
 }
 
 // LoadDerivedColumns は設定ファイルから派生列の定義を読み込む
@@ -53,6 +53,28 @@ func LoadDerivedColumns(configPath string) ([]DerivedColumn, error) {
 	return config.DerivedColumns, nil
 }
 
+// SaveDerivedColumns は派生列の定義を設定ファイルに書き込む
+func SaveDerivedColumns(configPath string, columns []DerivedColumn) error {
+	config := DerivedColumnConfig{
+		DerivedColumns: columns,
+	}
+
+	data, err := yaml.Marshal(&config)
+	if err != nil {
+		return fmt.Errorf("failed to marshal yaml: %w", err)
+	}
+
+	// ヘッダーコメントを追加
+	header := "# 派生列の定義\n# この設定ファイルで、既存の列から新しい列を動的に生成できます\n\n"
+	data = append([]byte(header), data...)
+
+	if err := os.WriteFile(configPath, data, 0644); err != nil {
+		return fmt.Errorf("failed to write config file: %w", err)
+	}
+
+	return nil
+}
+
 // GenerateCaseExpression は派生列のSQL CASE式を生成
 func (dc *DerivedColumn) GenerateCaseExpression() string {
 	// calculation_typeに応じて処理を分岐
@@ -61,6 +83,8 @@ func (dc *DerivedColumn) GenerateCaseExpression() string {
 		return dc.generateGradeCalculation()
 	case "school_type_from_birthdate":
 		return dc.generateSchoolTypeCalculation()
+	case "merge":
+		return dc.generateMergeExpression()
 	case "rules", "":
 		// デフォルトはルールベース
 		return dc.generateRuleBasedExpression()
@@ -71,6 +95,11 @@ func (dc *DerivedColumn) GenerateCaseExpression() string {
 
 // generateRuleBasedExpression はルールベースのCASE式を生成
 func (dc *DerivedColumn) generateRuleBasedExpression() string {
+	// ルールが空の場合はNULLを返す
+	if len(dc.Rules) == 0 {
+		return "NULL"
+	}
+
 	var cases []string
 
 	for _, rule := range dc.Rules {
@@ -103,6 +132,11 @@ func (dc *DerivedColumn) generateRuleBasedExpression() string {
 			elseClause = fmt.Sprintf("ELSE '%s'", rule.Label)
 			break
 		}
+	}
+
+	// WHEN句がない場合もNULLを返す
+	if len(cases) == 0 && elseClause == "" {
+		return "NULL"
 	}
 
 	// CASE式を組み立て
@@ -316,13 +350,46 @@ func (dc *DerivedColumn) generateSchoolTypeCalculation() string {
 	return caseExpr
 }
 
+// generateMergeExpression は複数列を結合するSQL式を生成
+func (dc *DerivedColumn) generateMergeExpression() string {
+	// パラメータからセパレータを取得（デフォルトは"|||"）
+	separator := "|||"
+	if sep, ok := dc.Parameters["separator"]; ok {
+		if s, ok := sep.(string); ok {
+			separator = s
+		}
+	}
+
+	// ソース列が指定されていない場合はエラー
+	if len(dc.SourceColumns) == 0 {
+		return "NULL"
+	}
+
+	// 各列をNULLIF(TRIM(列), '')でラップして空文字を除外
+	var columns []string
+	for _, colName := range dc.SourceColumns {
+		columns = append(columns, fmt.Sprintf(`NULLIF(TRIM("%s"), '')`, colName))
+	}
+
+	// CONCAT_WSで結合（NULLは自動的にスキップされる）
+	// 結果が空文字列の場合はNULLに変換
+	expr := fmt.Sprintf("NULLIF(TRIM(CONCAT_WS('%s', %s)), '')",
+		separator,
+		strings.Join(columns, ", "))
+
+	return expr
+}
+
 // GetDerivedColumn は派生列を仮想的なColumnとして返す
 func (dc *DerivedColumn) GetDerivedColumn(index int) Column {
+	// mergeタイプの場合は複数回答として扱う
+	isMulti := dc.CalculationType == "merge"
+
 	return Column{
 		Index:     index,
 		Name:      dc.Name,
 		Type:      "VARCHAR (派生列)",
-		IsMulti:   false,
+		IsMulti:   isMulti,
 		IsDerived: true,
 		SQLExpr:   dc.GenerateCaseExpression(),
 	}
